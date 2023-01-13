@@ -4,20 +4,19 @@ editor if you plan to continue editing the block that represents it in
 the Block Editor! File corruption is VERY likely to occur.
 */
 /*
-Copyright (C) 1991-2015 Altera Corporation. All rights reserved.
-Your use of Altera Corporation's design tools, logic functions 
+Copyright (C) 2018  Intel Corporation. All rights reserved.
+Your use of Intel Corporation's design tools, logic functions 
 and other software and tools, and its AMPP partner logic 
 functions, and any output files from any of the foregoing 
 (including device programming or simulation files), and any 
 associated documentation or information are expressly subject 
-to the terms and conditions of the Altera Program License 
-Subscription Agreement, the Altera Quartus II License Agreement,
-the Altera MegaCore Function License Agreement, or other 
-applicable license agreement, including, without limitation, 
-that your use is for the sole purpose of programming logic 
-devices manufactured by Altera and sold by Altera or its 
-authorized distributors.  Please refer to the applicable 
-agreement for further details.
+to the terms and conditions of the Intel Program License 
+Subscription Agreement, the Intel Quartus Prime License Agreement,
+the Intel FPGA IP License Agreement, or other applicable license
+agreement, including, without limitation, that your use is for
+the sole purpose of programming logic devices manufactured by
+Intel and sold by Intel or its authorized distributors.  Please
+refer to the applicable agreement for further details.
 */
 //#pragma file_not_in_maxplusii_format
 (header "graphic" (version "1.4"))
@@ -1145,6 +1144,7 @@ agreement for further details.
 		(line (pt 82 8)(pt 78 12))
 		(line (pt 78 12)(pt 82 8))
 	)
+	(annotation_block (location)(rect 2280 1456 2352 1480))
 )
 (pin
 	(output)
@@ -1381,7 +1381,7 @@ agreement for further details.
 	)
 )
 (symbol
-	(rect 248 -88 512 168)
+	(rect 248 -96 512 160)
 	(text "CPU_DMA_Mux" (rect 5 0 84 12)(font "Arial" ))
 	(text "inst14" (rect 8 240 37 252)(font "Arial" ))
 	(port
@@ -3377,92 +3377,6 @@ agreement for further details.
 	(pt 736 296)
 )
 (connector
-	(pt 592 -40)
-	(pt 512 -40)
-	(bus)
-)
-(connector
-	(pt 592 240)
-	(pt 592 -40)
-	(bus)
-)
-(connector
-	(pt 576 -24)
-	(pt 512 -24)
-)
-(connector
-	(text "DMA_Address[31..0]" (rect -30 -48 71 -36)(font "Arial" ))
-	(pt 80 -40)
-	(pt 248 -40)
-	(bus)
-)
-(connector
-	(text "DMA_DataOut[15..0]" (rect -30 -32 72 -20)(font "Arial" ))
-	(pt 80 -24)
-	(pt 248 -24)
-	(bus)
-)
-(connector
-	(text "DMA_AS_L" (rect -30 -16 25 -4)(font "Arial" ))
-	(pt 80 -8)
-	(pt 248 -8)
-)
-(connector
-	(text "DMA_RW" (rect -30 0 18 12)(font "Arial" ))
-	(pt 80 8)
-	(pt 248 8)
-)
-(connector
-	(text "DMA_UDS_L" (rect -30 16 34 28)(font "Arial" ))
-	(pt 80 24)
-	(pt 248 24)
-)
-(connector
-	(text "DMA_LDS_L" (rect -30 32 32 44)(font "Arial" ))
-	(pt 80 40)
-	(pt 248 40)
-)
-(connector
-	(pt 248 136)
-	(pt 232 136)
-)
-(connector
-	(pt 248 120)
-	(pt 216 120)
-)
-(connector
-	(pt 248 104)
-	(pt 200 104)
-)
-(connector
-	(pt 248 88)
-	(pt 184 88)
-)
-(connector
-	(pt 248 72)
-	(pt 168 72)
-	(bus)
-)
-(connector
-	(pt 248 56)
-	(pt 152 56)
-	(bus)
-)
-(connector
-	(pt 248 -56)
-	(pt 136 -56)
-)
-(connector
-	(pt 168 72)
-	(pt 168 240)
-	(bus)
-)
-(connector
-	(pt 152 56)
-	(pt 152 224)
-	(bus)
-)
-(connector
 	(pt 152 224)
 	(pt 72 224)
 	(bus)
@@ -3485,32 +3399,16 @@ agreement for further details.
 	(pt -176 272)
 )
 (connector
-	(pt 232 136)
-	(pt 232 320)
-)
-(connector
 	(pt 232 320)
 	(pt 72 320)
-)
-(connector
-	(pt 216 120)
-	(pt 216 304)
 )
 (connector
 	(pt 216 304)
 	(pt 72 304)
 )
 (connector
-	(pt 200 104)
-	(pt 200 288)
-)
-(connector
 	(pt 200 288)
 	(pt 72 288)
-)
-(connector
-	(pt 184 88)
-	(pt 184 272)
 )
 (connector
 	(pt 184 272)
@@ -3546,14 +3444,6 @@ agreement for further details.
 	(pt 152 368)
 )
 (connector
-	(pt 136 -56)
-	(pt 136 384)
-)
-(connector
-	(pt 136 384)
-	(pt 136 408)
-)
-(connector
 	(pt 72 352)
 	(pt 160 352)
 )
@@ -3574,28 +3464,12 @@ agreement for further details.
 	(pt -640 448)
 )
 (connector
-	(pt 512 -8)
-	(pt 560 -8)
-)
-(connector
-	(pt 512 8)
-	(pt 544 8)
-)
-(connector
 	(pt -536 288)
 	(pt -464 288)
 )
 (connector
 	(pt -464 256)
 	(pt -496 256)
-)
-(connector
-	(pt 560 -8)
-	(pt 560 296)
-)
-(connector
-	(pt 544 8)
-	(pt 544 312)
 )
 (connector
 	(pt -464 320)
@@ -3630,18 +3504,9 @@ agreement for further details.
 	(pt 776 328)
 )
 (connector
-	(pt 528 24)
-	(pt 512 24)
-)
-(connector
 	(text "Address[31..0]" (rect 762 592 833 604)(font "Arial" )(invisible))
 	(pt 792 608)
 	(pt 816 608)
-	(bus)
-)
-(connector
-	(pt 512 -56)
-	(pt 608 -56)
 	(bus)
 )
 (connector
@@ -4053,32 +3918,6 @@ agreement for further details.
 (connector
 	(pt 632 784)
 	(pt 632 112)
-)
-(connector
-	(pt 576 -304)
-	(pt 576 -24)
-)
-(connector
-	(pt 576 -24)
-	(pt 576 280)
-)
-(connector
-	(pt 528 -288)
-	(pt 528 24)
-)
-(connector
-	(pt 528 24)
-	(pt 528 328)
-)
-(connector
-	(pt 608 -320)
-	(pt 608 -56)
-	(bus)
-)
-(connector
-	(pt 608 -56)
-	(pt 608 224)
-	(bus)
 )
 (connector
 	(pt 1520 864)
@@ -5512,6 +5351,167 @@ agreement for further details.
 	(pt 1904 -64)
 	(pt 2080 -64)
 )
+(connector
+	(pt 592 -48)
+	(pt 512 -48)
+	(bus)
+)
+(connector
+	(pt 592 240)
+	(pt 592 -48)
+	(bus)
+)
+(connector
+	(pt 576 -32)
+	(pt 512 -32)
+)
+(connector
+	(text "DMA_Address[31..0]" (rect -30 -56 71 -44)(font "Arial" ))
+	(pt 80 -48)
+	(pt 248 -48)
+	(bus)
+)
+(connector
+	(text "DMA_DataOut[15..0]" (rect -30 -40 72 -28)(font "Arial" ))
+	(pt 80 -32)
+	(pt 248 -32)
+	(bus)
+)
+(connector
+	(text "DMA_AS_L" (rect -30 -24 25 -12)(font "Arial" ))
+	(pt 80 -16)
+	(pt 248 -16)
+)
+(connector
+	(text "DMA_RW" (rect -30 -8 18 4)(font "Arial" ))
+	(pt 80 0)
+	(pt 248 0)
+)
+(connector
+	(text "DMA_UDS_L" (rect -30 8 34 20)(font "Arial" ))
+	(pt 80 16)
+	(pt 248 16)
+)
+(connector
+	(text "DMA_LDS_L" (rect -30 24 32 36)(font "Arial" ))
+	(pt 80 32)
+	(pt 248 32)
+)
+(connector
+	(pt 232 128)
+	(pt 248 128)
+)
+(connector
+	(pt 216 112)
+	(pt 248 112)
+)
+(connector
+	(pt 200 96)
+	(pt 248 96)
+)
+(connector
+	(pt 184 80)
+	(pt 248 80)
+)
+(connector
+	(pt 168 64)
+	(pt 248 64)
+	(bus)
+)
+(connector
+	(pt 152 48)
+	(pt 248 48)
+	(bus)
+)
+(connector
+	(pt 136 -64)
+	(pt 248 -64)
+)
+(connector
+	(pt 168 240)
+	(pt 168 64)
+	(bus)
+)
+(connector
+	(pt 152 224)
+	(pt 152 48)
+	(bus)
+)
+(connector
+	(pt 232 320)
+	(pt 232 128)
+)
+(connector
+	(pt 216 304)
+	(pt 216 112)
+)
+(connector
+	(pt 200 288)
+	(pt 200 96)
+)
+(connector
+	(pt 184 272)
+	(pt 184 80)
+)
+(connector
+	(pt 560 -16)
+	(pt 512 -16)
+)
+(connector
+	(pt 544 0)
+	(pt 512 0)
+)
+(connector
+	(pt 560 296)
+	(pt 560 -16)
+)
+(connector
+	(pt 544 312)
+	(pt 544 0)
+)
+(connector
+	(pt 608 -64)
+	(pt 512 -64)
+	(bus)
+)
+(connector
+	(pt 528 16)
+	(pt 512 16)
+)
+(connector
+	(pt 576 -304)
+	(pt 576 -32)
+)
+(connector
+	(pt 576 -32)
+	(pt 576 280)
+)
+(connector
+	(pt 136 -64)
+	(pt 136 384)
+)
+(connector
+	(pt 136 384)
+	(pt 136 408)
+)
+(connector
+	(pt 608 -320)
+	(pt 608 -64)
+	(bus)
+)
+(connector
+	(pt 608 -64)
+	(pt 608 224)
+	(bus)
+)
+(connector
+	(pt 528 -288)
+	(pt 528 16)
+)
+(connector
+	(pt 528 16)
+	(pt 528 328)
+)
 (junction (pt 1280 224))
 (junction (pt 1376 224))
 (junction (pt 1296 240))
@@ -5539,9 +5539,6 @@ agreement for further details.
 (junction (pt 136 384))
 (junction (pt 1200 256))
 (junction (pt 1392 608))
-(junction (pt 528 24))
-(junction (pt 576 -24))
-(junction (pt 608 -56))
 (junction (pt -496 256))
 (junction (pt 792 224))
 (junction (pt 1360 624))
@@ -5615,6 +5612,9 @@ agreement for further details.
 (junction (pt 1264 -208))
 (junction (pt 1848 2568))
 (junction (pt 1376 720))
+(junction (pt 576 -32))
+(junction (pt 608 -64))
+(junction (pt 528 16))
 (text "Push Button 1" (rect -800 280 -721 294)(font "Arial" (font_size 8)))
 (text "Push Button 2" (rect -800 344 -721 358)(font "Arial" (font_size 8)))
 (text "Push Button 3" (rect -784 -240 -705 -226)(font "Arial" (font_size 8)))
