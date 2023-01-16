@@ -17,9 +17,9 @@
 // is based around Dram so #define accordingly before building
 
 //SRAM
-//#define StartOfExceptionVectorTable 0x08030000
+#define StartOfExceptionVectorTable 0x08030000
 //DRAM
-#define StartOfExceptionVectorTable 0x0B000000
+//#define StartOfExceptionVectorTable 0x0B000000
 
 /**********************************************************************************************
 **	Parallel port addresses
@@ -329,7 +329,7 @@ void InstallExceptionHandler( void (*function_ptr)(), int level)
 
 void main()
 {
-    unsigned int row, i=0, count=0, counter1=1;
+    /*unsigned int row, i=0, count=0, counter1=1;
     char c, text[150] ;
 
 	int PassFailFlag = 1 ;
@@ -356,9 +356,9 @@ void main()
     Init_LCD();             // initialise the LCD display to use a parallel data interface and 2 lines of display
     Init_RS232() ;          // initialise the RS232 port for use with hyper terminal
 
-/*************************************************************************************************
+************************************************************************************************
 **  Test of scanf function
-*************************************************************************************************/
+************************************************************************************************
 
     scanflush() ;                       // flush any text that may have been typed ahead
     printf("\r\nEnter Integer: ") ;
@@ -366,7 +366,7 @@ void main()
     printf("You entered %d", i) ;
 
     sprintf(text, "Hello CPEN 412 Student") ;
-    LCDLine1Message(text) ;
+    LCDLine1Message(text) ;*/
 
     printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
     printf("\r\nYour LCD should be displaying") ;

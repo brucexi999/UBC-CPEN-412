@@ -15,9 +15,9 @@
 ; // The working 68k system SOF file posted on canvas that you can use for your pre-lab
 ; // is based around Dram so #define accordingly before building
 ; //SRAM
-; //#define StartOfExceptionVectorTable 0x08030000
+; #define StartOfExceptionVectorTable 0x08030000
 ; //DRAM
-; #define StartOfExceptionVectorTable 0x0B000000
+; //#define StartOfExceptionVectorTable 0x0B000000
 ; /**********************************************************************************************
 ; **	Parallel port addresses
 ; **********************************************************************************************/
@@ -457,7 +457,7 @@ _LCDLine2Message:
 _InstallExceptionHandler:
        link      A6,#-4
 ; volatile long int *RamVectorAddress = (volatile long int *)(StartOfExceptionVectorTable) ;   // pointer to the Ram based interrupt vector table created in Cstart in debug monitor
-       move.l    #184549376,-4(A6)
+       move.l    #134414336,-4(A6)
 ; RamVectorAddress[level] = (long int *)(function_ptr);                       // install the address of our function into the exception table
        move.l    -4(A6),A0
        move.l    12(A6),D0
@@ -473,108 +473,42 @@ _InstallExceptionHandler:
 ; {
        xdef      _main
 _main:
-       link      A6,#-172
-       movem.l   A2/A3,-(A7)
-       lea       _InstallExceptionHandler.L,A2
-       lea       _printf.L,A3
-; unsigned int row, i=0, count=0, counter1=1;
-       clr.l     -168(A6)
-       clr.l     -164(A6)
-       move.l    #1,-160(A6)
+; /*unsigned int row, i=0, count=0, counter1=1;
 ; char c, text[150] ;
 ; int PassFailFlag = 1 ;
-       move.l    #1,-4(A6)
 ; i = x = y = z = PortA_Count =0;
-       clr.l     _PortA_Count.L
-       clr.l     _z.L
-       clr.l     _y.L
-       clr.l     _x.L
-       clr.l     -168(A6)
 ; Timer1Count = Timer2Count = Timer3Count = Timer4Count = 0;
-       clr.b     _Timer4Count.L
-       clr.b     _Timer3Count.L
-       clr.b     _Timer2Count.L
-       clr.b     _Timer1Count.L
 ; InstallExceptionHandler(PIA_ISR, 25) ;          // install interrupt handler for PIAs 1 and 2 on level 1 IRQ
-       pea       25
-       pea       _PIA_ISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; InstallExceptionHandler(ACIA_ISR, 26) ;		    // install interrupt handler for ACIA on level 2 IRQ
-       pea       26
-       pea       _ACIA_ISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; InstallExceptionHandler(Timer_ISR, 27) ;		// install interrupt handler for Timers 1-4 on level 3 IRQ
-       pea       27
-       pea       _Timer_ISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; InstallExceptionHandler(Key2PressISR, 28) ;	    // install interrupt handler for Key Press 2 on DE1 board for level 4 IRQ
-       pea       28
-       pea       _Key2PressISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; InstallExceptionHandler(Key1PressISR, 29) ;	    // install interrupt handler for Key Press 1 on DE1 board for level 5 IRQ
-       pea       29
-       pea       _Key1PressISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; Timer1Data = 0x10;		// program time delay into timers 1-4
-       move.b    #16,4194352
 ; Timer2Data = 0x20;
-       move.b    #32,4194356
 ; Timer3Data = 0x15;
-       move.b    #21,4194360
 ; Timer4Data = 0x25;
-       move.b    #37,4194364
 ; Timer1Control = 3;		// write 3 to control register to Bit0 = 1 (enable interrupt from timers) 1 - 4 and allow them to count Bit 1 = 1
-       move.b    #3,4194354
 ; Timer2Control = 3;
-       move.b    #3,4194358
 ; Timer3Control = 3;
-       move.b    #3,4194362
 ; Timer4Control = 3;
-       move.b    #3,4194366
 ; Init_LCD();             // initialise the LCD display to use a parallel data interface and 2 lines of display
-       jsr       _Init_LCD
 ; Init_RS232() ;          // initialise the RS232 port for use with hyper terminal
-       jsr       _Init_RS232
-; /*************************************************************************************************
+; ************************************************************************************************
 ; **  Test of scanf function
-; *************************************************************************************************/
+; ************************************************************************************************
 ; scanflush() ;                       // flush any text that may have been typed ahead
-       jsr       _scanflush
 ; printf("\r\nEnter Integer: ") ;
-       pea       @m68kus~1_1.L
-       jsr       (A3)
-       addq.w    #4,A7
 ; scanf("%d", &i) ;
-       pea       -168(A6)
-       pea       @m68kus~1_2.L
-       jsr       _scanf
-       addq.w    #8,A7
 ; printf("You entered %d", i) ;
-       move.l    -168(A6),-(A7)
-       pea       @m68kus~1_3.L
-       jsr       (A3)
-       addq.w    #8,A7
 ; sprintf(text, "Hello CPEN 412 Student") ;
-       pea       @m68kus~1_4.L
-       pea       -154(A6)
-       jsr       _sprintf
-       addq.w    #8,A7
-; LCDLine1Message(text) ;
-       pea       -154(A6)
-       jsr       _LCDLine1Message
-       addq.w    #4,A7
+; LCDLine1Message(text) ;*/
 ; printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
-       pea       @m68kus~1_5.L
-       jsr       (A3)
+       pea       @m68kus~1_1.L
+       jsr       _printf
        addq.w    #4,A7
 ; printf("\r\nYour LCD should be displaying") ;
-       pea       @m68kus~1_6.L
-       jsr       (A3)
+       pea       @m68kus~1_2.L
+       jsr       _printf
        addq.w    #4,A7
 ; while(1)
 main_1:
@@ -585,23 +519,12 @@ main_1:
 ; }
        section   const
 @m68kus~1_1:
-       dc.b      13,10,69,110,116,101,114,32,73,110,116,101,103
-       dc.b      101,114,58,32,0
-@m68kus~1_2:
-       dc.b      37,100,0
-@m68kus~1_3:
-       dc.b      89,111,117,32,101,110,116,101,114,101,100,32
-       dc.b      37,100,0
-@m68kus~1_4:
-       dc.b      72,101,108,108,111,32,67,80,69,78,32,52,49,50
-       dc.b      32,83,116,117,100,101,110,116,0
-@m68kus~1_5:
        dc.b      13,10,72,101,108,108,111,32,67,80,69,78,32,52
        dc.b      49,50,32,83,116,117,100,101,110,116,13,10,89
        dc.b      111,117,114,32,76,69,68,115,32,115,104,111,117
        dc.b      108,100,32,98,101,32,70,108,97,115,104,105,110
        dc.b      103,0
-@m68kus~1_6:
+@m68kus~1_2:
        dc.b      13,10,89,111,117,114,32,76,67,68,32,115,104
        dc.b      111,117,108,100,32,98,101,32,100,105,115,112
        dc.b      108,97,121,105,110,103,0
@@ -633,7 +556,4 @@ _Timer3Count:
        xdef      _Timer4Count
 _Timer4Count:
        ds.b      1
-       xref      _sprintf
-       xref      _scanf
-       xref      _scanflush
        xref      _printf

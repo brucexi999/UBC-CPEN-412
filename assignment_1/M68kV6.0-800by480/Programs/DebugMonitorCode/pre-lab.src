@@ -58,9 +58,9 @@ go_main         jsr       _main
 ; // The working 68k system SOF file posted on canvas that you can use for your pre-lab
 ; // is based around Dram so #define accordingly before building
 ; //SRAM
-; //#define StartOfExceptionVectorTable 0x08030000
+; #define StartOfExceptionVectorTable 0x08030000
 ; //DRAM
-; #define StartOfExceptionVectorTable 0x0B000000
+; //#define StartOfExceptionVectorTable 0x0B000000
 ; /**********************************************************************************************
 ; **	Parallel port addresses
 ; **********************************************************************************************/
@@ -482,7 +482,7 @@ _LCDLine2Message:
 _InstallExceptionHandler:
        link      A6,#-4
 ; volatile long int *RamVectorAddress = (volatile long int *)(StartOfExceptionVectorTable) ;   // pointer to the Ram based interrupt vector table created in Cstart in debug monitor
-       move.l    #184549376,-4(A6)
+       move.l    #134414336,-4(A6)
 ; RamVectorAddress[level] = (long int *)(function_ptr);                       // install the address of our function into the exception table
        move.l    -4(A6),A0
        move.l    12(A6),D0
@@ -497,108 +497,42 @@ _InstallExceptionHandler:
 ; void main()
 ; {
 _main:
-       link      A6,#-172
-       movem.l   A2/A3,-(A7)
-       lea       _InstallExceptionHandler.L,A2
-       lea       _printf.L,A3
-; unsigned int row, i=0, count=0, counter1=1;
-       clr.l     -168(A6)
-       clr.l     -164(A6)
-       move.l    #1,-160(A6)
+; /*unsigned int row, i=0, count=0, counter1=1;
 ; char c, text[150] ;
 ; int PassFailFlag = 1 ;
-       move.l    #1,-4(A6)
 ; i = x = y = z = PortA_Count =0;
-       clr.l     _PortA_Count.L
-       clr.l     _z.L
-       clr.l     _y.L
-       clr.l     _x.L
-       clr.l     -168(A6)
 ; Timer1Count = Timer2Count = Timer3Count = Timer4Count = 0;
-       clr.b     _Timer4Count.L
-       clr.b     _Timer3Count.L
-       clr.b     _Timer2Count.L
-       clr.b     _Timer1Count.L
 ; InstallExceptionHandler(PIA_ISR, 25) ;          // install interrupt handler for PIAs 1 and 2 on level 1 IRQ
-       pea       25
-       pea       _PIA_ISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; InstallExceptionHandler(ACIA_ISR, 26) ;		    // install interrupt handler for ACIA on level 2 IRQ
-       pea       26
-       pea       _ACIA_ISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; InstallExceptionHandler(Timer_ISR, 27) ;		// install interrupt handler for Timers 1-4 on level 3 IRQ
-       pea       27
-       pea       _Timer_ISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; InstallExceptionHandler(Key2PressISR, 28) ;	    // install interrupt handler for Key Press 2 on DE1 board for level 4 IRQ
-       pea       28
-       pea       _Key2PressISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; InstallExceptionHandler(Key1PressISR, 29) ;	    // install interrupt handler for Key Press 1 on DE1 board for level 5 IRQ
-       pea       29
-       pea       _Key1PressISR.L
-       jsr       (A2)
-       addq.w    #8,A7
 ; Timer1Data = 0x10;		// program time delay into timers 1-4
-       move.b    #16,4194352
 ; Timer2Data = 0x20;
-       move.b    #32,4194356
 ; Timer3Data = 0x15;
-       move.b    #21,4194360
 ; Timer4Data = 0x25;
-       move.b    #37,4194364
 ; Timer1Control = 3;		// write 3 to control register to Bit0 = 1 (enable interrupt from timers) 1 - 4 and allow them to count Bit 1 = 1
-       move.b    #3,4194354
 ; Timer2Control = 3;
-       move.b    #3,4194358
 ; Timer3Control = 3;
-       move.b    #3,4194362
 ; Timer4Control = 3;
-       move.b    #3,4194366
 ; Init_LCD();             // initialise the LCD display to use a parallel data interface and 2 lines of display
-       jsr       _Init_LCD
 ; Init_RS232() ;          // initialise the RS232 port for use with hyper terminal
-       jsr       _Init_RS232
-; /*************************************************************************************************
+; ************************************************************************************************
 ; **  Test of scanf function
-; *************************************************************************************************/
+; ************************************************************************************************
 ; scanflush() ;                       // flush any text that may have been typed ahead
-       jsr       _scanflush
 ; printf("\r\nEnter Integer: ") ;
-       pea       @m68kus~1_1.L
-       jsr       (A3)
-       addq.w    #4,A7
 ; scanf("%d", &i) ;
-       pea       -168(A6)
-       pea       @m68kus~1_2.L
-       jsr       _scanf
-       addq.w    #8,A7
 ; printf("You entered %d", i) ;
-       move.l    -168(A6),-(A7)
-       pea       @m68kus~1_3.L
-       jsr       (A3)
-       addq.w    #8,A7
 ; sprintf(text, "Hello CPEN 412 Student") ;
-       pea       @m68kus~1_4.L
-       pea       -154(A6)
-       jsr       _sprintf
-       addq.w    #8,A7
-; LCDLine1Message(text) ;
-       pea       -154(A6)
-       jsr       _LCDLine1Message
-       addq.w    #4,A7
+; LCDLine1Message(text) ;*/
 ; printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
-       pea       @m68kus~1_5.L
-       jsr       (A3)
+       pea       @m68kus~1_1.L
+       jsr       _printf
        addq.w    #4,A7
 ; printf("\r\nYour LCD should be displaying") ;
-       pea       @m68kus~1_6.L
-       jsr       (A3)
+       pea       @m68kus~1_2.L
+       jsr       _printf
        addq.w    #4,A7
 ; while(1)
 main_1:
@@ -607,902 +541,6 @@ main_1:
 ; // programs should NOT exit as there is nothing to Exit TO !!!!!!
 ; // There is no OS - just press the reset button to end program and call debug
 ; }
-_sprintf:
-       link      A6,#-4
-       movem.l   D2,-(A7)
-       lea       12(A6),A0
-       addq.w    #4,A0
-       move.l    A0,D2
-       move.l    D2,-(A7)
-       move.l    12(A6),-(A7)
-       move.l    8(A6),-(A7)
-       bsr       _vsprintf
-       add.w     #12,A7
-       move.l    D0,-4(A6)
-       clr.l     D2
-       move.l    -4(A6),D0
-       movem.l   (A7)+,D2
-       unlk      A6
-       rts
-_scanf:
-       link      A6,#-4
-       movem.l   D2,-(A7)
-       lea       8(A6),A0
-       addq.w    #4,A0
-       move.l    A0,D2
-       move.l    D2,-(A7)
-       move.l    8(A6),-(A7)
-       clr.l     -(A7)
-       bsr       _vsscanf
-       add.w     #12,A7
-       move.l    D0,-4(A6)
-       clr.l     D2
-       move.l    -4(A6),D0
-       movem.l   (A7)+,D2
-       unlk      A6
-       rts
-@vsscanf_scanread:
-       link      A6,#-4
-       movem.l   A2,-(A7)
-       lea       @vsscanf_bufx,A2
-       tst.l     8(A6)
-       beq.s     @vsscanf_scanread_1
-       move.l    8(A6),A0
-       addq.l    #4,8(A6)
-       move.l    (A0),A0
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       move.l    D0,-4(A6)
-       beq.s     @vsscanf_scanread_3
-       move.l    -4(A6),D0
-       bra.s     @vsscanf_scanread_4
-@vsscanf_scanread_3:
-       moveq     #-1,D0
-@vsscanf_scanread_4:
-       bra       @vsscanf_scanread_5
-@vsscanf_scanread_1:
-       move.l    (A2),A0
-       move.b    (A0),D0
-       bne.s     @vsscanf_scanread_6
-       pea       @vsscanf_buf
-       bsr       _gets
-       addq.w    #4,A7
-       move.l    D0,(A2)
-       pea       @vsscanf_1
-       pea       @vsscanf_buf
-       bsr       _strcat
-       addq.w    #8,A7
-@vsscanf_scanread_6:
-       move.l    (A2),A0
-       addq.l    #1,(A2)
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-@vsscanf_scanread_5:
-       movem.l   (A7)+,A2
-       unlk      A6
-       rts
-@vsscanf_scanputback:
-       link      A6,#0
-       movem.l   D2/D3,-(A7)
-       move.l    12(A6),D2
-       move.l    8(A6),D3
-       beq.s     @vsscanf_scanputback_1
-       cmp.l     #-1,D2
-       beq.s     @vsscanf_scanputback_3
-       subq.l    #4,D3
-       move.l    D3,A0
-       move.l    (A0),A0
-       move.b    D2,(A0)
-       bra.s     @vsscanf_scanputback_4
-@vsscanf_scanputback_3:
-       move.l    D3,A0
-       subq.l    #1,(A0)
-@vsscanf_scanputback_4:
-       bra.s     @vsscanf_scanputback_6
-@vsscanf_scanputback_1:
-       lea       @vsscanf_buf,A0
-       move.l    A0,D0
-       cmp.l     @vsscanf_bufx,D0
-       bne.s     @vsscanf_scanputback_5
-       clr.b     @vsscanf_buf
-       move.l    D2,-(A7)
-       bsr       _ungetch
-       addq.w    #4,A7
-       bra.s     @vsscanf_scanputback_6
-@vsscanf_scanputback_5:
-       subq.l    #1,@vsscanf_bufx
-       move.l    @vsscanf_bufx,A0
-       move.b    D2,(A0)
-@vsscanf_scanputback_6:
-       move.l    D2,D0
-       movem.l   (A7)+,D2/D3
-       unlk      A6
-       rts
-@vsscanf_scanspace:
-       link      A6,#0
-       movem.l   D2,-(A7)
-@vsscanf_scanspace_1:
-       move.l    8(A6),-(A7)
-       bsr       @vsscanf_scanread
-       addq.w    #4,A7
-       move.l    D0,D2
-       move.l    12(A6),A0
-       addq.l    #1,(A0)
-       move.l    D2,A0
-       lea       __ctype,A1
-       move.b    1(A0,A1.L),D0
-       and.b     #16,D0
-       bne       @vsscanf_scanspace_1
-       move.l    D2,D0
-       movem.l   (A7)+,D2
-       unlk      A6
-       rts
-@vsscanf_scanselect:
-       link      A6,#0
-       movem.l   D2/D3/D4/D5/D6/D7/A2,-(A7)
-       move.l    12(A6),D3
-       move.l    24(A6),D6
-       move.l    20(A6),D7
-       move.l    D3,A0
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     #94,D0
-       bne.s     @vsscanf_scanselect_1
-       move.w    #1,A2
-       addq.l    #1,D3
-       bra.s     @vsscanf_scanselect_2
-@vsscanf_scanselect_1:
-       move.w    #0,A2
-@vsscanf_scanselect_2:
-       move.l    16(A6),D0
-       subq.l    #1,16(A6)
-       tst.l     D0
-       beq       @vsscanf_scanselect_5
-       move.l    8(A6),-(A7)
-       bsr       @vsscanf_scanread
-       addq.w    #4,A7
-       move.l    D0,D4
-       cmp.l     #-1,D4
-       bne.s     @vsscanf_scanselect_6
-       bra       @vsscanf_scanselect_5
-@vsscanf_scanselect_6:
-       move.l    28(A6),A0
-       addq.l    #1,(A0)
-       clr.l     D5
-       clr.l     D2
-@vsscanf_scanselect_8:
-       move.l    D3,A0
-       move.b    0(A0,D2.L),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     #93,D0
-       beq       @vsscanf_scanselect_10
-       tst.l     D2
-       beq.s     @vsscanf_scanselect_11
-       move.l    D3,A0
-       move.b    0(A0,D2.L),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     #93,D0
-       bne.s     @vsscanf_scanselect_11
-       bra       @vsscanf_scanselect_10
-@vsscanf_scanselect_11:
-       tst.l     D2
-       beq       @vsscanf_scanselect_15
-       move.l    D3,A0
-       move.b    0(A0,D2.L),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     #45,D0
-       bne       @vsscanf_scanselect_15
-       move.l    D3,A0
-       move.l    D2,D0
-       subq.l    #1,D0
-       move.l    D3,A1
-       move.l    A0,-(A7)
-       move.l    D2,A0
-       move.b    0(A0,D0.L),D1
-       cmp.b     1(A0,A1.L),D1
-       bge       @vsscanf_scanselect_15
-       move.l    (A7)+,A0
-       move.l    D3,A0
-       move.l    D2,D0
-       subq.l    #1,D0
-       move.b    0(A0,D0.L),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     D0,D4
-       blt.s     @vsscanf_scanselect_17
-       move.l    D3,A0
-       move.l    D2,A1
-       move.b    1(A1,A0.L),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     D0,D4
-       bgt.s     @vsscanf_scanselect_17
-       bra.s     @vsscanf_scanselect_10
-@vsscanf_scanselect_17:
-       addq.l    #1,D2
-       bra.s     @vsscanf_scanselect_19
-@vsscanf_scanselect_15:
-       move.l    D3,A0
-       move.b    0(A0,D2.L),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     D0,D4
-       bne.s     @vsscanf_scanselect_19
-       bra.s     @vsscanf_scanselect_10
-@vsscanf_scanselect_19:
-       addq.l    #1,D2
-       bra       @vsscanf_scanselect_8
-@vsscanf_scanselect_10:
-       tst.l     D2
-       beq.s     @vsscanf_scanselect_23
-       move.l    D3,A0
-       move.b    0(A0,D2.L),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     #93,D0
-       beq.s     @vsscanf_scanselect_21
-@vsscanf_scanselect_23:
-       moveq     #1,D5
-@vsscanf_scanselect_21:
-       move.l    A2,D0
-       beq.s     @vsscanf_scanselect_24
-       tst.l     D5
-       bne.s     @vsscanf_scanselect_26
-       tst.l     D7
-       bne.s     @vsscanf_scanselect_28
-       move.l    D6,A0
-       addq.l    #1,D6
-       move.b    D4,(A0)
-@vsscanf_scanselect_28:
-       bra.s     @vsscanf_scanselect_4
-@vsscanf_scanselect_26:
-       bra.s     @vsscanf_scanselect_5
-@vsscanf_scanselect_24:
-       tst.l     D5
-       beq.s     @vsscanf_scanselect_30
-       tst.l     D7
-       bne.s     @vsscanf_scanselect_32
-       move.l    D6,A0
-       addq.l    #1,D6
-       move.b    D4,(A0)
-@vsscanf_scanselect_32:
-       bra.s     @vsscanf_scanselect_4
-@vsscanf_scanselect_30:
-       bra.s     @vsscanf_scanselect_5
-@vsscanf_scanselect_4:
-       bra       @vsscanf_scanselect_2
-@vsscanf_scanselect_5:
-       cmp.l     #-1,D4
-       beq.s     @vsscanf_scanselect_34
-       move.l    D4,-(A7)
-       move.l    8(A6),-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       move.l    28(A6),A0
-       subq.l    #1,(A0)
-@vsscanf_scanselect_34:
-       tst.l     D7
-       bne.s     @vsscanf_scanselect_36
-       move.l    D6,A0
-       clr.b     (A0)
-@vsscanf_scanselect_36:
-       addq.l    #1,D3
-       move.l    D3,A0
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       cmp.l     #93,D0
-       beq.s     @vsscanf_scanselect_40
-       bra       @vsscanf_scanselect_36
-@vsscanf_scanselect_40:
-       addq.l    #1,D3
-       move.l    D3,D0
-       movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2
-       unlk      A6
-       rts
-_scanflush:
-       lea       @vsscanf_buf,A0
-       move.l    A0,@vsscanf_bufx
-       clr.b     @vsscanf_buf
-       pea       -1
-       bsr       _ungetch
-       addq.w    #4,A7
-       rts
-_vsscanf:
-       link      A6,#-120
-       movem.l   D2/D3/D4/D5/D6/D7/A2/A3/A4/A5,-(A7)
-       lea       @vsscanf_scanread,A3
-       tst.l     8(A6)
-       beq.s     vsscanf_1
-       lea       8(A6),A0
-       bra.s     vsscanf_2
-vsscanf_1:
-       clr.l     D0
-       move.l    D0,A0
-vsscanf_2:
-       move.l    A0,D5
-       clr.l     -28(A6)
-       clr.l     D4
-vsscanf_3:
-       move.l    12(A6),A0
-       addq.l    #1,12(A6)
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       move.l    D0,D3
-       beq       vsscanf_5
-       clr.l     D6
-       move.w    #0,A4
-       cmp.l     #32,D3
-       beq.s     vsscanf_8
-       cmp.l     #9,D3
-       beq.s     vsscanf_8
-       cmp.l     #10,D3
-       bne       vsscanf_6
-vsscanf_8:
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       addq.l    #1,-28(A6)
-       cmp.l     #-1,D2
-       bne.s     vsscanf_11
-       tst.l     D4
-       beq.s     vsscanf_13
-       move.l    D4,D0
-       bra.s     vsscanf_14
-vsscanf_13:
-       moveq     #-1,D0
-vsscanf_14:
-       bra       vsscanf_15
-vsscanf_11:
-       move.l    D2,A0
-       lea       __ctype,A1
-       move.b    1(A0,A1.L),D0
-       and.b     #16,D0
-       bne       vsscanf_8
-       subq.l    #1,-28(A6)
-       move.l    D2,-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       bra       vsscanf_139
-vsscanf_6:
-       cmp.l     #37,D3
-       bne       vsscanf_127
-       move.l    12(A6),A0
-       addq.l    #1,12(A6)
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       move.l    D0,D3
-       clr.l     -20(A6)
-       clr.l     D6
-       clr.l     -24(A6)
-       move.w    #32767,A2
-       cmp.l     #42,D3
-       bne.s     vsscanf_18
-       moveq     #1,D6
-       move.l    12(A6),A0
-       addq.l    #1,12(A6)
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       move.l    D0,D3
-vsscanf_18:
-       move.l    D3,A0
-       lea       __ctype,A1
-       move.b    1(A0,A1.L),D0
-       and.b     #4,D0
-       beq       vsscanf_24
-       move.l    D3,D0
-       sub.l     #48,D0
-       move.l    D0,A2
-vsscanf_22:
-       move.l    12(A6),A0
-       addq.l    #1,12(A6)
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       move.l    D0,D3
-       move.l    D0,A0
-       lea       __ctype,A1
-       move.b    1(A0,A1.L),D0
-       and.l     #255,D0
-       and.l     #4,D0
-       beq.s     vsscanf_24
-       moveq     #-48,D0
-       move.l    A2,-(A7)
-       pea       10
-       bsr       LMUL
-       move.l    (A7),D1
-       addq.w    #8,A7
-       add.l     D3,D1
-       add.l     D1,D0
-       move.l    D0,A2
-       bra       vsscanf_22
-vsscanf_24:
-       cmp.l     #108,D3
-       beq.s     vsscanf_27
-       cmp.l     #76,D3
-       bne.s     vsscanf_25
-vsscanf_27:
-       move.l    #1,-24(A6)
-       move.l    12(A6),A0
-       addq.l    #1,12(A6)
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       move.l    D0,D3
-       bra.s     vsscanf_28
-vsscanf_25:
-       cmp.l     #104,D3
-       bne.s     vsscanf_28
-       move.l    #1,-20(A6)
-       move.l    12(A6),A0
-       addq.l    #1,12(A6)
-       move.b    (A0),D0
-       ext.w     D0
-       ext.l     D0
-       move.l    D0,D3
-vsscanf_28:
-       cmp.l     #91,D3
-       bne       vsscanf_30
-       tst.l     D6
-       bne.s     vsscanf_32
-       move.l    16(A6),A0
-       addq.l    #4,16(A6)
-       move.l    (A0),D7
-vsscanf_32:
-       pea       -28(A6)
-       move.l    D7,-(A7)
-       move.l    D6,-(A7)
-       move.l    A2,-(A7)
-       move.l    12(A6),-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanselect
-       add.w     #24,A7
-       move.l    D0,12(A6)
-       tst.l     D6
-       bne.s     vsscanf_34
-       addq.l    #1,D4
-vsscanf_34:
-       bra       vsscanf_139
-vsscanf_30:
-       cmp.l     #110,D3
-       bne.s     vsscanf_36
-       tst.l     D6
-       bne.s     vsscanf_38
-       move.l    16(A6),A0
-       addq.l    #4,16(A6)
-       move.l    (A0),D7
-       move.l    D7,A0
-       move.l    -28(A6),(A0)
-       addq.l    #1,D4
-vsscanf_38:
-       bra       vsscanf_139
-vsscanf_36:
-       cmp.l     #115,D3
-       bne       vsscanf_40
-       pea       -28(A6)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanspace
-       addq.w    #8,A7
-       move.l    D0,D2
-       tst.l     D6
-       bne.s     vsscanf_42
-       move.l    16(A6),A0
-       addq.l    #4,16(A6)
-       move.l    (A0),D7
-vsscanf_42:
-       addq.l    #1,-28(A6)
-vsscanf_44:
-       move.l    A2,D0
-       subq.w    #1,A2
-       tst.l     D0
-       beq       vsscanf_46
-       move.l    D2,A0
-       lea       __ctype,A1
-       move.b    1(A0,A1.L),D0
-       and.b     #16,D0
-       bne.s     vsscanf_46
-       cmp.l     #-1,D2
-       beq.s     vsscanf_46
-       move.w    #1,A4
-       tst.l     D6
-       bne.s     vsscanf_47
-       move.l    D7,A0
-       addq.l    #1,D7
-       move.b    D2,(A0)
-vsscanf_47:
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       addq.l    #1,-28(A6)
-       bra       vsscanf_44
-vsscanf_46:
-       tst.l     D6
-       bne.s     vsscanf_51
-       move.l    D7,A0
-       clr.b     (A0)
-       move.l    A4,D0
-       beq.s     vsscanf_51
-       addq.l    #1,D4
-vsscanf_51:
-       cmp.l     #-1,D2
-       beq.s     vsscanf_55
-       tst.l     D6
-       bne.s     vsscanf_53
-       move.l    A4,D0
-       bne.s     vsscanf_53
-vsscanf_55:
-       tst.l     D4
-       beq.s     vsscanf_56
-       move.l    D4,D0
-       bra.s     vsscanf_59
-vsscanf_56:
-       cmp.l     #-1,D2
-       bne.s     vsscanf_58
-       moveq     #-1,D0
-       bra.s     vsscanf_59
-vsscanf_58:
-       move.l    D4,D0
-vsscanf_59:
-       bra       vsscanf_15
-vsscanf_53:
-       subq.l    #1,-28(A6)
-       move.l    D2,-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       bra       vsscanf_139
-vsscanf_40:
-       cmp.l     #99,D3
-       bne       vsscanf_60
-       tst.l     D6
-       bne.s     vsscanf_62
-       move.l    16(A6),A0
-       addq.l    #4,16(A6)
-       move.l    (A0),D7
-vsscanf_62:
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       addq.l    #1,-28(A6)
-       move.l    A2,D0
-       cmp.l     #32767,D0
-       bne.s     vsscanf_64
-       move.w    #1,A2
-vsscanf_64:
-       cmp.l     #-1,D2
-       bne.s     vsscanf_66
-       tst.l     D6
-       bne.s     vsscanf_66
-       subq.l    #1,D4
-vsscanf_66:
-       move.l    A2,D0
-       subq.w    #1,A2
-       tst.l     D0
-       beq.s     vsscanf_70
-       cmp.l     #-1,D2
-       beq.s     vsscanf_70
-       tst.l     D6
-       bne.s     vsscanf_71
-       move.l    D7,A0
-       addq.l    #1,D7
-       move.b    D2,(A0)
-vsscanf_71:
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       addq.l    #1,-28(A6)
-       bra       vsscanf_66
-vsscanf_70:
-       cmp.l     #-1,D2
-       bne.s     vsscanf_73
-       tst.l     D4
-       beq.s     vsscanf_75
-       move.l    D4,D0
-       bra.s     vsscanf_76
-vsscanf_75:
-       moveq     #-1,D0
-vsscanf_76:
-       bra       vsscanf_15
-vsscanf_73:
-       tst.l     D6
-       bne.s     vsscanf_77
-       addq.l    #1,D4
-vsscanf_77:
-       subq.l    #1,-28(A6)
-       move.l    D2,-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       bra       vsscanf_139
-vsscanf_60:
-       cmp.l     #105,D3
-       bne       vsscanf_82
-       pea       -28(A6)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanspace
-       addq.w    #8,A7
-       move.l    D0,D2
-       cmp.l     #48,D2
-       bne       vsscanf_81
-       move.w    #1,A4
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       move.l    D2,-(A7)
-       bsr       _tolower
-       addq.w    #4,A7
-       cmp.l     #120,D0
-       bne.s     vsscanf_83
-       moveq     #120,D3
-       bra.s     vsscanf_84
-vsscanf_83:
-       subq.l    #1,-28(A6)
-       move.l    D2,-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       moveq     #111,D3
-vsscanf_84:
-       addq.l    #1,-28(A6)
-       bra.s     vsscanf_82
-vsscanf_81:
-       subq.l    #1,-28(A6)
-       move.l    D2,-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       moveq     #100,D3
-vsscanf_82:
-       cmp.l     #100,D3
-       beq.s     vsscanf_87
-       cmp.l     #117,D3
-       beq.s     vsscanf_87
-       cmp.l     #120,D3
-       beq.s     vsscanf_87
-       cmp.l     #111,D3
-       bne       vsscanf_85
-vsscanf_87:
-       pea       -28(A6)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanspace
-       addq.w    #8,A7
-       move.l    D0,D2
-       move.l    #10,-4(A6)
-       cmp.l     #120,D3
-       bne.s     vsscanf_88
-       move.l    #16,-4(A6)
-vsscanf_88:
-       cmp.l     #111,D3
-       bne.s     vsscanf_90
-       move.l    #8,-4(A6)
-vsscanf_90:
-       tst.l     D6
-       bne.s     vsscanf_92
-       move.l    16(A6),A0
-       addq.l    #4,16(A6)
-       move.l    (A0),D7
-vsscanf_92:
-       clr.l     -32(A6)
-       addq.l    #1,-28(A6)
-       cmp.l     #117,D3
-       beq.s     vsscanf_94
-       cmp.l     #45,D2
-       bne.s     vsscanf_94
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       addq.l    #1,-28(A6)
-       move.l    #1,-32(A6)
-       move.w    #1,A4
-vsscanf_94:
-       move.w    #0,A5
-       cmp.l     #-1,D2
-       bne.s     vsscanf_96
-       tst.l     D4
-       beq.s     vsscanf_98
-       move.l    D4,D0
-       bra.s     vsscanf_99
-vsscanf_98:
-       moveq     #-1,D0
-vsscanf_99:
-       bra       vsscanf_15
-vsscanf_96:
-       move.l    A2,D0
-       subq.w    #1,A2
-       tst.l     D0
-       beq       vsscanf_102
-       cmp.l     #120,D3
-       bne.s     vsscanf_104
-       move.l    D2,-(A7)
-       bsr       _toupper
-       addq.w    #4,A7
-       cmp.l     #65,D0
-       blt.s     vsscanf_104
-       move.l    D2,-(A7)
-       bsr       _toupper
-       addq.w    #4,A7
-       cmp.l     #70,D0
-       ble.s     vsscanf_103
-vsscanf_104:
-       move.l    D2,A0
-       lea       __ctype,A1
-       move.b    1(A0,A1.L),D0
-       and.b     #4,D0
-       beq       vsscanf_102
-vsscanf_103:
-       move.l    D2,A0
-       lea       __ctype,A1
-       move.b    1(A0,A1.L),D0
-       and.b     #4,D0
-       bne.s     vsscanf_105
-       moveq     #-7,D0
-       move.l    D0,-(A7)
-       move.l    D2,-(A7)
-       bsr       _toupper
-       addq.w    #4,A7
-       move.l    D0,D1
-       move.l    (A7)+,D0
-       add.l     D1,D0
-       move.l    D0,D2
-vsscanf_105:
-       move.l    A5,-(A7)
-       move.l    -4(A6),-(A7)
-       bsr       LMUL
-       move.l    (A7),D0
-       addq.w    #8,A7
-       add.l     D2,D0
-       sub.l     #48,D0
-       move.l    D0,A5
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       addq.l    #1,-28(A6)
-       move.w    #1,A4
-       bra       vsscanf_96
-vsscanf_102:
-       cmp.l     #-1,D2
-       beq.s     vsscanf_107
-       move.l    D2,-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       subq.l    #1,-28(A6)
-       move.l    A4,D0
-       bne.s     vsscanf_109
-       move.l    D4,D0
-       bra       vsscanf_15
-vsscanf_109:
-       bra.s     vsscanf_111
-vsscanf_107:
-       move.l    A4,D0
-       bne.s     vsscanf_111
-       tst.l     D4
-       beq.s     vsscanf_113
-       move.l    D4,D0
-       bra.s     vsscanf_114
-vsscanf_113:
-       moveq     #-1,D0
-vsscanf_114:
-       bra       vsscanf_15
-vsscanf_111:
-       tst.l     -32(A6)
-       beq.s     vsscanf_115
-       move.l    A5,D0
-       neg.l     D0
-       move.l    D0,A5
-vsscanf_115:
-       tst.l     D6
-       bne.s     vsscanf_117
-       tst.l     -24(A6)
-       beq.s     vsscanf_119
-       move.l    D7,A0
-       move.l    A5,(A0)
-       bra.s     vsscanf_122
-vsscanf_119:
-       tst.l     -20(A6)
-       beq.s     vsscanf_121
-       move.l    D7,A0
-       move.w    A5,(A0)
-       bra.s     vsscanf_122
-vsscanf_121:
-       move.l    D7,A0
-       move.l    A5,(A0)
-vsscanf_122:
-       addq.l    #1,D4
-vsscanf_117:
-       cmp.l     #-1,D2
-       bne.s     vsscanf_123
-       tst.l     D4
-       beq.s     vsscanf_125
-       move.l    D4,D0
-       bra.s     vsscanf_126
-vsscanf_125:
-       moveq     #-1,D0
-vsscanf_126:
-       bra       vsscanf_15
-vsscanf_123:
-       bra       vsscanf_139
-vsscanf_85:
-       cmp.l     #37,D3
-       bne       vsscanf_127
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       cmp.l     #-1,D2
-       bne.s     vsscanf_129
-       tst.l     D4
-       beq.s     vsscanf_131
-       move.l    D4,D0
-       bra.s     vsscanf_132
-vsscanf_131:
-       moveq     #-1,D0
-vsscanf_132:
-       bra       vsscanf_15
-vsscanf_129:
-       addq.l    #1,-28(A6)
-       cmp.l     D3,D2
-       beq.s     vsscanf_133
-       move.l    D2,-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       subq.l    #1,-28(A6)
-       move.l    D4,D0
-       bra       vsscanf_15
-vsscanf_133:
-       bra       vsscanf_139
-vsscanf_127:
-       move.l    D5,-(A7)
-       jsr       (A3)
-       addq.w    #4,A7
-       move.l    D0,D2
-       addq.l    #1,-28(A6)
-       cmp.l     #-1,D2
-       bne.s     vsscanf_135
-       tst.l     D4
-       beq.s     vsscanf_137
-       move.l    D4,D0
-       bra.s     vsscanf_138
-vsscanf_137:
-       moveq     #-1,D0
-vsscanf_138:
-       bra.s     vsscanf_15
-vsscanf_135:
-       cmp.l     D3,D2
-       beq.s     vsscanf_139
-       move.l    D2,-(A7)
-       move.l    D5,-(A7)
-       bsr       @vsscanf_scanputback
-       addq.w    #8,A7
-       subq.l    #1,-28(A6)
-       move.l    D4,D0
-       bra.s     vsscanf_15
-vsscanf_139:
-       bra       vsscanf_3
-vsscanf_5:
-       move.l    D4,D0
-vsscanf_15:
-       movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2/A3/A4/A5
-       unlk      A6
-       rts
 _printf:
        link      A6,#-4
        movem.l   D2,-(A7)
@@ -2214,172 +1252,6 @@ vsprintf_126:
        movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2/A3/A4/A5
        unlk      A6
        rts
-ULMUL:
-       link    A6,#0
-       movem.l D0/D1,-(A7)
-       move.l  8(A6),D1
-       move.l  12(A6),D0
-       bra.s   lmul_3
-LMUL:
-       link    A6,#0
-       movem.l D0/D1,-(A7)
-       move.l  8(A6),D1
-       move.l  12(A6),D0
-       tst.l   D0
-       bpl.s   lmul_1
-       neg.l   D0
-       tst.l   D1
-       bpl.s   lmul_2
-       neg.l   D1
-       bra.s   lmul_3
-lmul_1:
-       tst.l   D1
-       bpl.s   lmul_3
-       neg.l   D1
-lmul_2:
-       bsr.s   domul
-       neg.l   D1
-       negx.l  D0
-       bra.s   lmul_4
-lmul_3:
-       bsr.s   domul
-lmul_4:
-       move.l  D1,8(A6)
-       movem.l (A7)+,D0/D1
-       unlk    A6
-       rts
-domul:
-       cmpi.l  #$FFFF,D1
-       bhi.s   domul_1
-       cmpi.l  #$FFFF,D0
-       bhi.s   domul_2
-       mulu    D0,D1
-       rts
-domul_1:
-       cmpi.l  #$FFFF,D0
-       bhi.s   domul_4
-       bra.s   domul_3
-domul_2
-       exg     D0,D1
-domul_3:
-       move.l  D2,-(A7)
-       move.l  D1,D2
-       swap    D2
-       mulu    D0,D1
-       mulu    D0,D2
-       swap    D2
-       clr.w   D2
-       add.l   D2,D1
-       move.l  (A7)+,D2
-       rts
-domul_4:
-       movem.l D2/D3,-(A7)
-       move.l  D1,D2
-       move.l  D1,D3
-       mulu    D0,D1
-       swap    D2
-       mulu    D0,D2
-       swap    D0
-       mulu    D0,D3
-       add.l   D3,D2
-       swap    D2
-       clr.w   D2
-       add.l   D2,D1
-       movem.l (A7)+,D2/D3
-       rts
-_gets:
-       link      A6,#0
-       movem.l   D2/D3/D4/A2,-(A7)
-       lea       _putch,A2
-       move.l    8(A6),D4
-       move.l    D4,D2
-gets_1:
-       bsr       _getch
-       move.l    D0,D3
-       cmp.l     #10,D0
-       beq       gets_3
-       cmp.l     #8,D3
-       beq.s     gets_4
-       move.l    D2,A0
-       addq.l    #1,D2
-       move.b    D3,(A0)
-       ext.w     D3
-       ext.l     D3
-       move.l    D3,-(A7)
-       jsr       (A2)
-       addq.w    #4,A7
-       bra.s     gets_6
-gets_4:
-       cmp.l     D4,D2
-       bls.s     gets_6
-       pea       8
-       jsr       (A2)
-       addq.w    #4,A7
-       pea       32
-       jsr       (A2)
-       addq.w    #4,A7
-       pea       8
-       jsr       (A2)
-       addq.w    #4,A7
-       subq.l    #1,D2
-gets_6:
-       bra       gets_1
-gets_3:
-       pea       10
-       jsr       (A2)
-       addq.w    #4,A7
-       move.l    D2,A0
-       clr.b     (A0)
-       move.l    D4,D0
-       movem.l   (A7)+,D2/D3/D4/A2
-       unlk      A6
-       rts
-_tolower:
-       link      A6,#0
-       movem.l   D2,-(A7)
-       move.l    8(A6),D2
-       cmp.l     #65,D2
-       blt.s     tolower_1
-       cmp.l     #90,D2
-       bgt.s     tolower_1
-       or.l      #32,D2
-tolower_1:
-       move.l    D2,D0
-       movem.l   (A7)+,D2
-       unlk      A6
-       rts
-_strcat:
-       move.l    (4,A7),A0	
-       move.l    (8,A7),A1	
-       move.l    A0,D0		
-strcat_0:
-       tst.b     (A0)+
-       bne       strcat_0
-       subq      #1,A0
-strcat_1:
-       move.b    (A1)+,(A0)+
-       bne       strcat_1
-       rts
-_toupper:
-       link      A6,#0
-       movem.l   D2,-(A7)
-       move.l    8(A6),D2
-       cmp.l     #97,D2
-       blt.s     toupper_1
-       cmp.l     #122,D2
-       bgt.s     toupper_1
-       and.l     #95,D2
-toupper_1:
-       move.l    D2,D0
-       movem.l   (A7)+,D2
-       unlk      A6
-       rts
-_ungetch:
-       link      A6,#0
-       move.l    8(A6),__ungetbuf
-       move.l    8(A6),D0
-       unlk      A6
-       rts
 @itoa_convert:
        link      A6,#0
        movem.l   D2/D3/D4/D5,-(A7)
@@ -2507,6 +1379,79 @@ _itoa:
        add.w     #12,A7
        unlk      A6
        rts
+ULMUL:
+       link    A6,#0
+       movem.l D0/D1,-(A7)
+       move.l  8(A6),D1
+       move.l  12(A6),D0
+       bra.s   lmul_3
+LMUL:
+       link    A6,#0
+       movem.l D0/D1,-(A7)
+       move.l  8(A6),D1
+       move.l  12(A6),D0
+       tst.l   D0
+       bpl.s   lmul_1
+       neg.l   D0
+       tst.l   D1
+       bpl.s   lmul_2
+       neg.l   D1
+       bra.s   lmul_3
+lmul_1:
+       tst.l   D1
+       bpl.s   lmul_3
+       neg.l   D1
+lmul_2:
+       bsr.s   domul
+       neg.l   D1
+       negx.l  D0
+       bra.s   lmul_4
+lmul_3:
+       bsr.s   domul
+lmul_4:
+       move.l  D1,8(A6)
+       movem.l (A7)+,D0/D1
+       unlk    A6
+       rts
+domul:
+       cmpi.l  #$FFFF,D1
+       bhi.s   domul_1
+       cmpi.l  #$FFFF,D0
+       bhi.s   domul_2
+       mulu    D0,D1
+       rts
+domul_1:
+       cmpi.l  #$FFFF,D0
+       bhi.s   domul_4
+       bra.s   domul_3
+domul_2
+       exg     D0,D1
+domul_3:
+       move.l  D2,-(A7)
+       move.l  D1,D2
+       swap    D2
+       mulu    D0,D1
+       mulu    D0,D2
+       swap    D2
+       clr.w   D2
+       add.l   D2,D1
+       move.l  (A7)+,D2
+       rts
+domul_4:
+       movem.l D2/D3,-(A7)
+       move.l  D1,D2
+       move.l  D1,D3
+       mulu    D0,D1
+       swap    D2
+       mulu    D0,D2
+       swap    D0
+       mulu    D0,D3
+       add.l   D3,D2
+       swap    D2
+       clr.w   D2
+       add.l   D2,D1
+       movem.l (A7)+,D2/D3
+       rts
 _strlen:
        move.l    (4,A7),A0
        move.l    A0,A1
@@ -2534,23 +1479,19 @@ putch_1:
        movem.l   (A7)+,D2
        unlk      A6
        rts
-_getch:
+_toupper:
+       link      A6,#0
        movem.l   D2,-(A7)
-       move.l    __ungetbuf,D2
-       move.l    __ungetbuf,D0
-       cmp.l     #-1,D0
-       beq.s     getch_1
-       move.l    #-1,__ungetbuf
-       bra.s     getch_3
-getch_1:
-       bsr       __getch
-       move.l    D0,D2
-       cmp.l     #13,D0
-       bne.s     getch_3
-       moveq     #10,D2
-getch_3:
+       move.l    8(A6),D2
+       cmp.l     #97,D2
+       blt.s     toupper_1
+       cmp.l     #122,D2
+       bgt.s     toupper_1
+       and.l     #95,D2
+toupper_1:
        move.l    D2,D0
        movem.l   (A7)+,D2
+       unlk      A6
        rts
 _strcpy:
        move.l    (4,A7),A0
@@ -2666,23 +1607,12 @@ dodiv_5:
 
 
 @m68kus~1_1:
-       dc.b      13,10,69,110,116,101,114,32,73,110,116,101,103
-       dc.b      101,114,58,32,0
-@m68kus~1_2:
-       dc.b      37,100,0
-@m68kus~1_3:
-       dc.b      89,111,117,32,101,110,116,101,114,101,100,32
-       dc.b      37,100,0
-@m68kus~1_4:
-       dc.b      72,101,108,108,111,32,67,80,69,78,32,52,49,50
-       dc.b      32,83,116,117,100,101,110,116,0
-@m68kus~1_5:
        dc.b      13,10,72,101,108,108,111,32,67,80,69,78,32,52
        dc.b      49,50,32,83,116,117,100,101,110,116,13,10,89
        dc.b      111,117,114,32,76,69,68,115,32,115,104,111,117
        dc.b      108,100,32,98,101,32,70,108,97,115,104,105,110
        dc.b      103,0
-@m68kus~1_6:
+@m68kus~1_2:
        dc.b      13,10,89,111,117,114,32,76,67,68,32,115,104
        dc.b      111,117,108,100,32,98,101,32,100,105,115,112
        dc.b      108,97,121,105,110,103,0
@@ -2699,28 +1629,6 @@ __allocp:       ds.l      1                    start of free memory block list
 __heap:         ds.l      1                    begin of free memory
 
 
-@vsscanf_bufx:
-       dc.l      @vsscanf_buf
-@vsscanf_1:
-       dc.b      10,0
-__ctype:
-       dc.b      0,64,64,64,64,64,64,64,64,64,80,80,80,80,80
-       dc.b      64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
-       dc.b      64,64,64,208,160,160,160,160,160,160,160,160
-       dc.b      160,160,160,160,160,160,160,140,140,140,140
-       dc.b      140,140,140,140,140,140,160,160,160,160,160
-       dc.b      160,160,138,138,138,138,138,138,130,130,130
-       dc.b      130,130,130,130,130,130,130,130,130,130,130
-       dc.b      130,130,130,130,130,130,160,160,160,160,160
-       dc.b      160,137,137,137,137,137,137,129,129,129,129
-       dc.b      129,129,129,129,129,129,129,129,129,129,129
-       dc.b      129,129,129,129,129,160,160,160,160,64,0,0,0
-       dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-       dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-       dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-       dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-       dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-       dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 @itoa_1:
        dc.b      45,50,49,52,55,52,56,51,54,52,56,0
        section   bss
@@ -2752,8 +1660,6 @@ _Timer3Count:
        ds.b      1
 _Timer4Count:
        ds.b      1
-@vsscanf_buf:
-       ds.b      80
        section   heap
                align
 

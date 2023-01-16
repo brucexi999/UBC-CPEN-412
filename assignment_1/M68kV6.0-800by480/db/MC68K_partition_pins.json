@@ -104,6 +104,38 @@
 					"strict" : false
 				},
 				{
+					"name" : "DataBusIn[7]",
+					"strict" : false
+				},
+				{
+					"name" : "DataBusIn[6]",
+					"strict" : false
+				},
+				{
+					"name" : "DataBusIn[5]",
+					"strict" : false
+				},
+				{
+					"name" : "DataBusIn[4]",
+					"strict" : false
+				},
+				{
+					"name" : "DataBusIn[3]",
+					"strict" : false
+				},
+				{
+					"name" : "DataBusIn[2]",
+					"strict" : false
+				},
+				{
+					"name" : "DataBusIn[1]",
+					"strict" : false
+				},
+				{
+					"name" : "DataBusIn[0]",
+					"strict" : false
+				},
+				{
 					"name" : "VGA_HS",
 					"strict" : false
 				},
@@ -680,11 +712,11 @@
 					"strict" : false
 				},
 				{
-					"name" : "SW[1]",
+					"name" : "SW[9]",
 					"strict" : false
 				},
 				{
-					"name" : "SW[9]",
+					"name" : "SW[1]",
 					"strict" : false
 				},
 				{
