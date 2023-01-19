@@ -20,7 +20,7 @@
 #define StartOfExceptionVectorTable 0x08030000
 //DRAM
 //#define StartOfExceptionVectorTable 0x0B000000
-#define addr1_value   *(volatile unsigned char *)(0x08020001)
+
 /**********************************************************************************************
 **	Parallel port addresses
 **********************************************************************************************/
@@ -91,6 +91,11 @@
 #define PIA2_PortB_data     *(volatile unsigned char *)(0x00400064)         // combined data and data direction register share same address
 #define PIA2_PortB_Control *(volatile unsigned char *)(0x00400066)
 
+/**********************************************************************************************
+SRAM memory test 
+***********************************************************************************************/
+#define sram_base   *(volatile unsigned short *)(0x08020000)
+
 
 /*********************************************************************************************************************************
 (( DO NOT initialise global variables here, do it main even if you want 0
@@ -113,6 +118,8 @@ void LCDClearln(void);
 void LCDline1Message(char *theMessage);
 void LCDline2Message(char *theMessage);
 int sprintf(char *out, const char *format, ...) ;
+int data_bus_test(void);
+void ask_addr_range (unsigned int*, int);
 
 /*****************************************************************************************
 **	Interrupt service routine for Timers
@@ -326,14 +333,86 @@ void InstallExceptionHandler( void (*function_ptr)(), int level)
 /******************************************************************************************************************************
 * Start of user program
 ******************************************************************************************************************************/
+int data_bus_test (void) {
+    unsigned short test_data = 1;
+    int shift_count;
+    for (shift_count = 0; shift_count < 16; shift_count++){
+        printf("\r\ndata bus test data: %d", test_data);
+        sram_base = test_data;
+        if (sram_base != test_data ) {
+            printf ("\r\ndata bus test failed with data: %d", test_data);
+            return 0;
+        }
+        test_data = test_data << 1; 
+    }
+    printf ("\r\ndata bus test passed!");
+    return 0; 
+}
 
+// Returning an array containing the start and the end address of the test (two hex numbers)
+void ask_addr_range (unsigned int* addr_array, int data_length) {
+    int start_addr_valid = 0;
+    int end_addr_valid = 0;
+
+    while (!start_addr_valid) {
+        printf("\r\nProvide the start address of the test.\n");
+        scanf("%x", addr_array);
+        if (addr_array[0] < 134348800) {
+            printf ("The start address is smaller than 0x08020000, invalid!\n");
+        } else if (addr_array[0] > 134414336) {
+            printf ("The start address is bigger than 0x08030000, invalid!\n");
+        } else { // If the data length is words or long words, check whether the start address is odd 
+            if (data_length > 1 && addr_array[0] % 2 != 0) {
+                printf("The start address provided is odd, need an even one!\n");
+            } else {
+                printf ("Start address valid.\n");
+                start_addr_valid = 1;
+            } 
+        }
+    }
+
+    while (!end_addr_valid) {
+        printf("\r\nProvide the end address of the test.\n");
+        scanf("%x", addr_array+1);
+        if (addr_array[1] < 134348800) {
+            printf ("The end address is smaller than 0x08020000, invalid!\n");
+        } else if (addr_array[1] > 134414336)
+        {
+            printf ("The end address is bigger than 0x08030000, invalid!\n");
+        } else { 
+            if (data_length > 1 && addr_array[1] % 2 != 0) {
+                printf("The end address provided is odd, need an even one!\n");
+            } else {
+                printf ("End address valid.\n");
+                end_addr_valid = 1;
+            } 
+        }
+    }
+
+}
 
 void main (void) {
+    int data_length;
+    int data_pattern;
+    unsigned int addr_array[2];
+    unsigned int start_addr, end_addr;
 
-    addr1_value = 69;
-    printf ("\r\naddr1_value: %d", addr1_value); 
-    printf ("\r\nHello World.");
+    data_bus_test();
+    printf("\r\nDo you want the data to be 1. bytes, 2. words, or 3. long words? Provide the integer below.\n");
+    scanf("%d", &data_length);
+    printf("\r\nDo you want the data to be 1. 00, 2. 55, 3. AA, or 4. FF? Provide the integer below.\n");
+    scanf("%d", &data_pattern);
+    
+    ask_addr_range(addr_array, data_length);
+    start_addr = addr_array[0];
+    end_addr = addr_array[1];
+
+    printf("Start address: %x\n", start_addr);
+    printf("End address: %x\n", end_addr);
     while(1)
         ;
 }
+
+
+
 
