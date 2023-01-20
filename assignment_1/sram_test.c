@@ -120,7 +120,9 @@ void LCDline2Message(char *theMessage);
 int sprintf(char *out, const char *format, ...) ;
 int data_bus_test(void);
 void ask_addr_range (unsigned int*, int);
-
+unsigned char byte_data (int data_pattern);
+unsigned short word_data (int data_pattern);
+unsigned int long_word_data (int data_pattern);
 /*****************************************************************************************
 **	Interrupt service routine for Timers
 **
@@ -391,18 +393,72 @@ void ask_addr_range (unsigned int* addr_array, int data_length) {
 
 }
 
+// Return the byte data with the correct pattern
+unsigned char byte_data (int data_pattern){
+    if (data_pattern == 1) {
+        return 0;
+    } else if (data_pattern == 2) {
+        return 0x55;
+    } else if (data_pattern == 3) {
+        return 0xaa;
+    } else if (data_pattern == 4) {
+        return 0xff;
+    } 
+}
+
+// Return the word data (16 bits) with the correct pattern
+unsigned short word_data (int data_pattern){
+    if (data_pattern == 1) {
+        return 0;
+    } else if (data_pattern == 2) {
+        return 0x5555;
+    } else if (data_pattern == 3) {
+        return 0xaaaa;
+    } else if (data_pattern == 4) {
+        return 0xffff;
+    } 
+}
+
+// Return the long word data (32 bits) with the correct pattern
+unsigned int long_word_data (int data_pattern){
+    if (data_pattern == 1) {
+        return 0;
+    } else if (data_pattern == 2) {
+        return 0x55555555;
+    } else if (data_pattern == 3) {
+        return 0xaaaaaaaa;
+    } else if (data_pattern == 4) {
+        return 0xffffffff;
+    } 
+}
+
 void main (void) {
     int data_length;
     int data_pattern;
     unsigned int addr_array[2];
     unsigned int start_addr, end_addr;
+    unsigned char byte;
+    unsigned short word;
+    unsigned int long_word; 
 
     data_bus_test();
     printf("\r\nDo you want the data to be 1. bytes, 2. words, or 3. long words? Provide the integer below.\n");
     scanf("%d", &data_length);
-    printf("\r\nDo you want the data to be 1. 00, 2. 55, 3. AA, or 4. FF? Provide the integer below.\n");
+    printf("\r\nDo you want the data to be composed of (hex) 1. 0, 2. 5, 3. A, or 4. F? Provide the integer below.\n");
     scanf("%d", &data_pattern);
     
+    if (data_length == 1) {
+        byte = byte_data (data_pattern);
+        printf ("Test data: %x\n",byte);
+    } else if (data_length == 2) {
+        word = word_data (data_pattern);
+        printf ("Test data: %x\n", word);
+    } else if (data_length == 3) {
+        long_word = long_word_data (data_pattern);
+        printf ("Test data: %x\n", long_word);
+    }
+
+
     ask_addr_range(addr_array, data_length);
     start_addr = addr_array[0];
     end_addr = addr_array[1];
