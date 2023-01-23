@@ -123,6 +123,9 @@ void ask_addr_range (unsigned int*, int);
 unsigned char byte_data (int data_pattern);
 unsigned short word_data (int data_pattern);
 unsigned int long_word_data (int data_pattern);
+int byte_test (unsigned char byte, unsigned int* addr_array);
+int word_test (unsigned short word, unsigned int* addr_array);
+int long_word_test (unsigned int long_word, unsigned int* addr_array);
 /*****************************************************************************************
 **	Interrupt service routine for Timers
 **
@@ -432,6 +435,66 @@ unsigned int long_word_data (int data_pattern){
     } 
 }
 
+int byte_test (unsigned char byte, unsigned int* addr_array) {
+    unsigned int start_addr = addr_array[0];
+    unsigned int end_addr = addr_array[1];
+    volatile unsigned char *test_addr = (unsigned char *) start_addr;
+    int i;
+
+    for (i = 0; i < end_addr - start_addr; i ++) {
+        test_addr = (unsigned char *) start_addr + i; 
+        *test_addr = byte;
+        if (i % 10000 == 0){
+            printf("Location %x, write data: %x, read data: %x\n", test_addr, byte, *test_addr);
+        }
+        if (*test_addr != byte) {
+            printf("Test failed at location %d!\n", test_addr);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int word_test (unsigned short word, unsigned int* addr_array) {
+    unsigned int start_addr = addr_array[0];
+    unsigned int end_addr = addr_array[1];
+    volatile unsigned short *test_addr = (volatile unsigned short *) start_addr;
+    int i;
+
+    for (i = 0; i < (end_addr - start_addr); i++) {
+        test_addr = start_addr + i;
+        *test_addr = word;
+        if (i % 10000 == 0){
+            printf("Location %x, write data: %x, read data: %x\n", test_addr, word, *test_addr);
+        }
+        if (*test_addr != word) {
+            printf("Test failed at location %x!\n", test_addr);
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int long_word_test (unsigned int long_word, unsigned int* addr_array) {
+    unsigned int start_addr = addr_array[0];
+    unsigned int end_addr = addr_array[1];
+    volatile unsigned int *test_addr = (volatile unsigned int *) start_addr;
+    int i;
+
+    for (i = 0; i < (end_addr - start_addr); i++) {
+        test_addr = start_addr + i; 
+        *test_addr = long_word;
+        if (i % 10000 == 0){
+            printf("Location %x, write data: %x, read data: %x\n", test_addr, long_word, *test_addr);
+        }
+        if (*test_addr != long_word) {
+            printf("Test failed at location %d!\n", test_addr);
+            return 0;
+        }
+    }
+    return 1;
+}
+
 void main (void) {
     int data_length;
     int data_pattern;
@@ -439,25 +502,15 @@ void main (void) {
     unsigned int start_addr, end_addr;
     unsigned char byte;
     unsigned short word;
-    unsigned int long_word; 
+    unsigned int long_word;
+    int result;
 
     data_bus_test();
+
     printf("\r\nDo you want the data to be 1. bytes, 2. words, or 3. long words? Provide the integer below.\n");
     scanf("%d", &data_length);
     printf("\r\nDo you want the data to be composed of (hex) 1. 0, 2. 5, 3. A, or 4. F? Provide the integer below.\n");
     scanf("%d", &data_pattern);
-    
-    if (data_length == 1) {
-        byte = byte_data (data_pattern);
-        printf ("Test data: %x\n",byte);
-    } else if (data_length == 2) {
-        word = word_data (data_pattern);
-        printf ("Test data: %x\n", word);
-    } else if (data_length == 3) {
-        long_word = long_word_data (data_pattern);
-        printf ("Test data: %x\n", long_word);
-    }
-
 
     ask_addr_range(addr_array, data_length);
     start_addr = addr_array[0];
@@ -465,6 +518,26 @@ void main (void) {
 
     printf("Start address: %x\n", start_addr);
     printf("End address: %x\n", end_addr);
+    
+    if (data_length == 1) {
+        byte = byte_data (data_pattern);
+        printf ("Test data: %x\n",byte);
+        result = byte_test(byte, addr_array);
+    } else if (data_length == 2) {
+        word = word_data (data_pattern);
+        printf ("Test data: %x\n", word);
+        result = word_test (word, addr_array);
+    } else if (data_length == 3) {
+        long_word = long_word_data (data_pattern);
+        printf ("Test data: %x\n", long_word);
+        result = long_word_test (long_word, addr_array);
+    }
+
+    if (result == 1) {
+        printf("Test passed!\n");
+    }
+
+
     while(1)
         ;
 }
