@@ -18,7 +18,6 @@
 ; #define StartOfExceptionVectorTable 0x08030000
 ; //DRAM
 ; //#define StartOfExceptionVectorTable 0x0B000000
-; #define addr1_value   *(volatile unsigned char *)(0x08020001)
 ; /**********************************************************************************************
 ; **	Parallel port addresses
 ; **********************************************************************************************/
@@ -73,6 +72,10 @@
 ; #define PIA2_PortA_Control *(volatile unsigned char *)(0x00400062)
 ; #define PIA2_PortB_data     *(volatile unsigned char *)(0x00400064)         // combined data and data direction register share same address
 ; #define PIA2_PortB_Control *(volatile unsigned char *)(0x00400066)
+; /**********************************************************************************************
+; SRAM memory test 
+; ***********************************************************************************************/
+; #define sram_base   *(volatile unsigned short *)(0x08020000)
 ; /*********************************************************************************************************************************
 ; (( DO NOT initialise global variables here, do it main even if you want 0
 ; (( it's a limitation of the compiler
@@ -92,6 +95,14 @@
 ; void LCDline1Message(char *theMessage);
 ; void LCDline2Message(char *theMessage);
 ; int sprintf(char *out, const char *format, ...) ;
+; int data_bus_test(void);
+; void ask_addr_range (unsigned int*, int);
+; unsigned char byte_data (int data_pattern);
+; unsigned short word_data (int data_pattern);
+; unsigned int long_word_data (int data_pattern);
+; int byte_test (unsigned char byte, unsigned int* addr_array);
+; int word_test (unsigned short word, unsigned int* addr_array);
+; int long_word_test (unsigned int long_word, unsigned int* addr_array);
 ; /*****************************************************************************************
 ; **	Interrupt service routine for Timers
 ; **
@@ -470,34 +481,826 @@ _InstallExceptionHandler:
 ; /******************************************************************************************************************************
 ; * Start of user program
 ; ******************************************************************************************************************************/
+; int data_bus_test (void) {
+       xdef      _data_bus_test
+_data_bus_test:
+       movem.l   D2/D3/A2,-(A7)
+       lea       _printf.L,A2
+; unsigned short test_data = 1;
+       moveq     #1,D2
+; int shift_count;
+; for (shift_count = 0; shift_count < 16; shift_count++){
+       clr.l     D3
+data_bus_test_1:
+       cmp.l     #16,D3
+       bge       data_bus_test_3
+; printf("\r\ndata bus test data: %d", test_data);
+       and.l     #65535,D2
+       move.l    D2,-(A7)
+       pea       @sram_t~1_1.L
+       jsr       (A2)
+       addq.w    #8,A7
+; sram_base = test_data;
+       move.w    D2,134348800
+; if (sram_base != test_data ) {
+       cmp.w     134348800,D2
+       beq.s     data_bus_test_4
+; printf ("\r\ndata bus test failed with data: %d", test_data);
+       and.l     #65535,D2
+       move.l    D2,-(A7)
+       pea       @sram_t~1_2.L
+       jsr       (A2)
+       addq.w    #8,A7
+; return 0;
+       clr.l     D0
+       bra.s     data_bus_test_6
+data_bus_test_4:
+; }
+; test_data = test_data << 1; 
+       lsl.w     #1,D2
+       addq.l    #1,D3
+       bra       data_bus_test_1
+data_bus_test_3:
+; }
+; printf ("\r\ndata bus test passed!");
+       pea       @sram_t~1_3.L
+       jsr       (A2)
+       addq.w    #4,A7
+; return 0; 
+       clr.l     D0
+data_bus_test_6:
+       movem.l   (A7)+,D2/D3/A2
+       rts
+; }
+; // Returning an array containing the start and the end address of the test (two hex numbers)
+; void ask_addr_range (unsigned int* addr_array, int data_length) {
+       xdef      _ask_addr_range
+_ask_addr_range:
+       link      A6,#0
+       movem.l   D2/D3/D4/A2,-(A7)
+       lea       _printf.L,A2
+       move.l    8(A6),D2
+; int start_addr_valid = 0;
+       clr.l     D4
+; int end_addr_valid = 0;
+       clr.l     D3
+; while (!start_addr_valid) {
+ask_addr_range_1:
+       tst.l     D4
+       bne       ask_addr_range_3
+; printf("\r\nProvide the start address of the test.\n");
+       pea       @sram_t~1_4.L
+       jsr       (A2)
+       addq.w    #4,A7
+; scanf("%x", addr_array);
+       move.l    D2,-(A7)
+       pea       @sram_t~1_5.L
+       jsr       _scanf
+       addq.w    #8,A7
+; if (addr_array[0] < 134348800) {
+       move.l    D2,A0
+       move.l    (A0),D0
+       cmp.l     #134348800,D0
+       bhs.s     ask_addr_range_4
+; printf ("The start address is smaller than 0x08020000, invalid!\n");
+       pea       @sram_t~1_6.L
+       jsr       (A2)
+       addq.w    #4,A7
+       bra       ask_addr_range_9
+ask_addr_range_4:
+; } else if (addr_array[0] > 134414336) {
+       move.l    D2,A0
+       move.l    (A0),D0
+       cmp.l     #134414336,D0
+       bls.s     ask_addr_range_6
+; printf ("The start address is bigger than 0x08030000, invalid!\n");
+       pea       @sram_t~1_7.L
+       jsr       (A2)
+       addq.w    #4,A7
+       bra       ask_addr_range_9
+ask_addr_range_6:
+; } else { // If the data length is words or long words, check whether the start address is odd 
+; if (data_length > 1 && addr_array[0] % 2 != 0) {
+       move.l    12(A6),D0
+       cmp.l     #1,D0
+       ble.s     ask_addr_range_8
+       move.l    D2,A0
+       move.l    (A0),-(A7)
+       pea       2
+       jsr       ULDIV
+       move.l    4(A7),D0
+       addq.w    #8,A7
+       tst.l     D0
+       beq.s     ask_addr_range_8
+; printf("The start address provided is odd, need an even one!\n");
+       pea       @sram_t~1_8.L
+       jsr       (A2)
+       addq.w    #4,A7
+       bra.s     ask_addr_range_9
+ask_addr_range_8:
+; } else {
+; printf ("Start address valid.\n");
+       pea       @sram_t~1_9.L
+       jsr       (A2)
+       addq.w    #4,A7
+; start_addr_valid = 1;
+       moveq     #1,D4
+ask_addr_range_9:
+       bra       ask_addr_range_1
+ask_addr_range_3:
+; } 
+; }
+; }
+; while (!end_addr_valid) {
+ask_addr_range_10:
+       tst.l     D3
+       bne       ask_addr_range_12
+; printf("\r\nProvide the end address of the test.\n");
+       pea       @sram_t~1_10.L
+       jsr       (A2)
+       addq.w    #4,A7
+; scanf("%x", addr_array+1);
+       move.l    D2,D1
+       addq.l    #4,D1
+       move.l    D1,-(A7)
+       pea       @sram_t~1_11.L
+       jsr       _scanf
+       addq.w    #8,A7
+; if (addr_array[1] < 134348800) {
+       move.l    D2,A0
+       move.l    4(A0),D0
+       cmp.l     #134348800,D0
+       bhs.s     ask_addr_range_13
+; printf ("The end address is smaller than 0x08020000, invalid!\n");
+       pea       @sram_t~1_12.L
+       jsr       (A2)
+       addq.w    #4,A7
+       bra       ask_addr_range_18
+ask_addr_range_13:
+; } else if (addr_array[1] > 134414336)
+       move.l    D2,A0
+       move.l    4(A0),D0
+       cmp.l     #134414336,D0
+       bls.s     ask_addr_range_15
+; {
+; printf ("The end address is bigger than 0x08030000, invalid!\n");
+       pea       @sram_t~1_13.L
+       jsr       (A2)
+       addq.w    #4,A7
+       bra       ask_addr_range_18
+ask_addr_range_15:
+; } else { 
+; if (data_length > 1 && addr_array[1] % 2 != 0) {
+       move.l    12(A6),D0
+       cmp.l     #1,D0
+       ble.s     ask_addr_range_17
+       move.l    D2,A0
+       move.l    4(A0),-(A7)
+       pea       2
+       jsr       ULDIV
+       move.l    4(A7),D0
+       addq.w    #8,A7
+       tst.l     D0
+       beq.s     ask_addr_range_17
+; printf("The end address provided is odd, need an even one!\n");
+       pea       @sram_t~1_14.L
+       jsr       (A2)
+       addq.w    #4,A7
+       bra.s     ask_addr_range_18
+ask_addr_range_17:
+; } else {
+; printf ("End address valid.\n");
+       pea       @sram_t~1_15.L
+       jsr       (A2)
+       addq.w    #4,A7
+; end_addr_valid = 1;
+       moveq     #1,D3
+ask_addr_range_18:
+       bra       ask_addr_range_10
+ask_addr_range_12:
+       movem.l   (A7)+,D2/D3/D4/A2
+       unlk      A6
+       rts
+; } 
+; }
+; }
+; }
+; // Return the byte data with the correct pattern
+; unsigned char byte_data (int data_pattern){
+       xdef      _byte_data
+_byte_data:
+       link      A6,#0
+       move.l    D2,-(A7)
+       move.l    8(A6),D2
+; if (data_pattern == 1) {
+       cmp.l     #1,D2
+       bne.s     byte_data_1
+; return 0;
+       clr.b     D0
+       bra.s     byte_data_8
+byte_data_1:
+; } else if (data_pattern == 2) {
+       cmp.l     #2,D2
+       bne.s     byte_data_4
+; return 0x55;
+       moveq     #85,D0
+       bra.s     byte_data_8
+byte_data_4:
+; } else if (data_pattern == 3) {
+       cmp.l     #3,D2
+       bne.s     byte_data_6
+; return 0xaa;
+       move.b    #170,D0
+       bra.s     byte_data_8
+byte_data_6:
+; } else if (data_pattern == 4) {
+       cmp.l     #4,D2
+       bne.s     byte_data_8
+; return 0xff;
+       move.b    #255,D0
+       bra       byte_data_8
+byte_data_8:
+       move.l    (A7)+,D2
+       unlk      A6
+       rts
+; } 
+; }
+; // Return the word data (16 bits) with the correct pattern
+; unsigned short word_data (int data_pattern){
+       xdef      _word_data
+_word_data:
+       link      A6,#0
+       move.l    D2,-(A7)
+       move.l    8(A6),D2
+; if (data_pattern == 1) {
+       cmp.l     #1,D2
+       bne.s     word_data_1
+; return 0;
+       clr.w     D0
+       bra.s     word_data_8
+word_data_1:
+; } else if (data_pattern == 2) {
+       cmp.l     #2,D2
+       bne.s     word_data_4
+; return 0x5555;
+       move.w    #21845,D0
+       bra.s     word_data_8
+word_data_4:
+; } else if (data_pattern == 3) {
+       cmp.l     #3,D2
+       bne.s     word_data_6
+; return 0xaaaa;
+       move.w    #43690,D0
+       bra.s     word_data_8
+word_data_6:
+; } else if (data_pattern == 4) {
+       cmp.l     #4,D2
+       bne.s     word_data_8
+; return 0xffff;
+       move.w    #65535,D0
+       bra       word_data_8
+word_data_8:
+       move.l    (A7)+,D2
+       unlk      A6
+       rts
+; } 
+; }
+; // Return the long word data (32 bits) with the correct pattern
+; unsigned int long_word_data (int data_pattern){
+       xdef      _long_word_data
+_long_word_data:
+       link      A6,#0
+       move.l    D2,-(A7)
+       move.l    8(A6),D2
+; if (data_pattern == 1) {
+       cmp.l     #1,D2
+       bne.s     long_word_data_1
+; return 0;
+       clr.l     D0
+       bra.s     long_word_data_8
+long_word_data_1:
+; } else if (data_pattern == 2) {
+       cmp.l     #2,D2
+       bne.s     long_word_data_4
+; return 0x55555555;
+       move.l    #1431655765,D0
+       bra.s     long_word_data_8
+long_word_data_4:
+; } else if (data_pattern == 3) {
+       cmp.l     #3,D2
+       bne.s     long_word_data_6
+; return 0xaaaaaaaa;
+       move.l    #-1431655766,D0
+       bra.s     long_word_data_8
+long_word_data_6:
+; } else if (data_pattern == 4) {
+       cmp.l     #4,D2
+       bne.s     long_word_data_8
+; return 0xffffffff;
+       moveq     #-1,D0
+       bra       long_word_data_8
+long_word_data_8:
+       move.l    (A7)+,D2
+       unlk      A6
+       rts
+; } 
+; }
+; int byte_test (unsigned char byte, unsigned int* addr_array) {
+       xdef      _byte_test
+_byte_test:
+       link      A6,#-4
+       movem.l   D2/D3/D4/D5,-(A7)
+       move.b    11(A6),D5
+       and.l     #255,D5
+; unsigned int start_addr = addr_array[0];
+       move.l    12(A6),A0
+       move.l    (A0),D4
+; unsigned int end_addr = addr_array[1];
+       move.l    12(A6),A0
+       move.l    4(A0),-4(A6)
+; volatile unsigned char *test_addr = (unsigned char *) start_addr;
+       move.l    D4,D2
+; int i;
+; for (i = 0; i < end_addr - start_addr; i ++) {
+       clr.l     D3
+byte_test_1:
+       move.l    -4(A6),D0
+       sub.l     D4,D0
+       cmp.l     D0,D3
+       bhs       byte_test_3
+; test_addr = (unsigned char *) start_addr + i; 
+       move.l    D4,D0
+       add.l     D3,D0
+       move.l    D0,D2
+; *test_addr = byte;
+       move.l    D2,A0
+       move.b    D5,(A0)
+; if (i % 10000 == 0){
+       move.l    D3,-(A7)
+       pea       10000
+       jsr       LDIV
+       move.l    4(A7),D0
+       addq.w    #8,A7
+       tst.l     D0
+       bne.s     byte_test_4
+; printf("Location %x, write data: %x, read data: %x\n", test_addr, byte, *test_addr);
+       move.l    D2,A0
+       move.b    (A0),D1
+       and.l     #255,D1
+       move.l    D1,-(A7)
+       and.l     #255,D5
+       move.l    D5,-(A7)
+       move.l    D2,-(A7)
+       pea       @sram_t~1_16.L
+       jsr       _printf
+       add.w     #16,A7
+byte_test_4:
+; }
+; if (*test_addr != byte) {
+       move.l    D2,A0
+       cmp.b     (A0),D5
+       beq.s     byte_test_6
+; printf("Test failed at location %d!\n", test_addr);
+       move.l    D2,-(A7)
+       pea       @sram_t~1_17.L
+       jsr       _printf
+       addq.w    #8,A7
+; return 0;
+       clr.l     D0
+       bra.s     byte_test_8
+byte_test_6:
+       addq.l    #1,D3
+       bra       byte_test_1
+byte_test_3:
+; }
+; }
+; return 1;
+       moveq     #1,D0
+byte_test_8:
+       movem.l   (A7)+,D2/D3/D4/D5
+       unlk      A6
+       rts
+; }
+; int word_test (unsigned short word, unsigned int* addr_array) {
+       xdef      _word_test
+_word_test:
+       link      A6,#-4
+       movem.l   D2/D3/D4/D5,-(A7)
+       move.w    10(A6),D5
+       and.l     #65535,D5
+; unsigned int start_addr = addr_array[0];
+       move.l    12(A6),A0
+       move.l    (A0),D4
+; unsigned int end_addr = addr_array[1];
+       move.l    12(A6),A0
+       move.l    4(A0),-4(A6)
+; volatile unsigned short *test_addr = (volatile unsigned short *) start_addr;
+       move.l    D4,D2
+; int i;
+; for (i = 0; i < (end_addr - start_addr); i++) {
+       clr.l     D3
+word_test_1:
+       move.l    -4(A6),D0
+       sub.l     D4,D0
+       cmp.l     D0,D3
+       bhs       word_test_3
+; test_addr = start_addr + i;
+       move.l    D4,D0
+       add.l     D3,D0
+       move.l    D0,D2
+; *test_addr = word;
+       move.l    D2,A0
+       move.w    D5,(A0)
+; if (i % 10000 == 0){
+       move.l    D3,-(A7)
+       pea       10000
+       jsr       LDIV
+       move.l    4(A7),D0
+       addq.w    #8,A7
+       tst.l     D0
+       bne.s     word_test_4
+; printf("Location %x, write data: %x, read data: %x\n", test_addr, word, *test_addr);
+       move.l    D2,A0
+       move.w    (A0),D1
+       and.l     #65535,D1
+       move.l    D1,-(A7)
+       and.l     #65535,D5
+       move.l    D5,-(A7)
+       move.l    D2,-(A7)
+       pea       @sram_t~1_18.L
+       jsr       _printf
+       add.w     #16,A7
+word_test_4:
+; }
+; if (*test_addr != word) {
+       move.l    D2,A0
+       cmp.w     (A0),D5
+       beq.s     word_test_6
+; printf("Test failed at location %x!\n", test_addr);
+       move.l    D2,-(A7)
+       pea       @sram_t~1_19.L
+       jsr       _printf
+       addq.w    #8,A7
+; return 0;
+       clr.l     D0
+       bra.s     word_test_8
+word_test_6:
+       addq.l    #1,D3
+       bra       word_test_1
+word_test_3:
+; }
+; }
+; return 1;
+       moveq     #1,D0
+word_test_8:
+       movem.l   (A7)+,D2/D3/D4/D5
+       unlk      A6
+       rts
+; }
+; int long_word_test (unsigned int long_word, unsigned int* addr_array) {
+       xdef      _long_word_test
+_long_word_test:
+       link      A6,#-4
+       movem.l   D2/D3/D4/D5,-(A7)
+       move.l    8(A6),D5
+; unsigned int start_addr = addr_array[0];
+       move.l    12(A6),A0
+       move.l    (A0),D4
+; unsigned int end_addr = addr_array[1];
+       move.l    12(A6),A0
+       move.l    4(A0),-4(A6)
+; volatile unsigned int *test_addr = (volatile unsigned int *) start_addr;
+       move.l    D4,D2
+; int i;
+; for (i = 0; i < (end_addr - start_addr); i++) {
+       clr.l     D3
+long_word_test_1:
+       move.l    -4(A6),D0
+       sub.l     D4,D0
+       cmp.l     D0,D3
+       bhs       long_word_test_3
+; test_addr = start_addr + i; 
+       move.l    D4,D0
+       add.l     D3,D0
+       move.l    D0,D2
+; *test_addr = long_word;
+       move.l    D2,A0
+       move.l    D5,(A0)
+; if (i % 10000 == 0){
+       move.l    D3,-(A7)
+       pea       10000
+       jsr       LDIV
+       move.l    4(A7),D0
+       addq.w    #8,A7
+       tst.l     D0
+       bne.s     long_word_test_4
+; printf("Location %x, write data: %x, read data: %x\n", test_addr, long_word, *test_addr);
+       move.l    D2,A0
+       move.l    (A0),-(A7)
+       move.l    D5,-(A7)
+       move.l    D2,-(A7)
+       pea       @sram_t~1_20.L
+       jsr       _printf
+       add.w     #16,A7
+long_word_test_4:
+; }
+; if (*test_addr != long_word) {
+       move.l    D2,A0
+       cmp.l     (A0),D5
+       beq.s     long_word_test_6
+; printf("Test failed at location %d!\n", test_addr);
+       move.l    D2,-(A7)
+       pea       @sram_t~1_21.L
+       jsr       _printf
+       addq.w    #8,A7
+; return 0;
+       clr.l     D0
+       bra.s     long_word_test_8
+long_word_test_6:
+       addq.l    #1,D3
+       bra       long_word_test_1
+long_word_test_3:
+; }
+; }
+; return 1;
+       moveq     #1,D0
+long_word_test_8:
+       movem.l   (A7)+,D2/D3/D4/D5
+       unlk      A6
+       rts
+; }
 ; void main (void) {
        xdef      _main
 _main:
-; addr1_value = 69;
-       move.b    #69,134348801
-; printf ("\r\n addr1_value: %d", addr1_value); 
-       move.b    134348801,D1
-       and.l     #255,D1
-       move.l    D1,-(A7)
-       pea       @sram_t~1_1.L
-       jsr       _printf
-       addq.w    #8,A7
-; printf ("\r\nHello World.");
-       pea       @sram_t~1_2.L
-       jsr       _printf
+       link      A6,#-24
+       movem.l   D2/D3/D4/D5/A2/A3,-(A7)
+       lea       _printf.L,A2
+       lea       -16(A6),A3
+; int data_length;
+; int data_pattern;
+; unsigned int addr_array[2];
+; unsigned int start_addr, end_addr;
+; unsigned char byte;
+; unsigned short word;
+; unsigned int long_word;
+; int result;
+; data_bus_test();
+       jsr       _data_bus_test
+; printf("\r\nDo you want the data to be 1. bytes, 2. words, or 3. long words? Provide the integer below.\n");
+       pea       @sram_t~1_22.L
+       jsr       (A2)
        addq.w    #4,A7
-; while(1)
+; scanf("%d", &data_length);
+       pea       -24(A6)
+       pea       @sram_t~1_23.L
+       jsr       _scanf
+       addq.w    #8,A7
+; printf("\r\nDo you want the data to be composed of (hex) 1. 0, 2. 5, 3. A, or 4. F? Provide the integer below.\n");
+       pea       @sram_t~1_24.L
+       jsr       (A2)
+       addq.w    #4,A7
+; scanf("%d", &data_pattern);
+       pea       -20(A6)
+       pea       @sram_t~1_25.L
+       jsr       _scanf
+       addq.w    #8,A7
+; ask_addr_range(addr_array, data_length);
+       move.l    -24(A6),-(A7)
+       move.l    A3,-(A7)
+       jsr       _ask_addr_range
+       addq.w    #8,A7
+; start_addr = addr_array[0];
+       move.l    (A3),-8(A6)
+; end_addr = addr_array[1];
+       move.l    4(A3),-4(A6)
+; printf("Start address: %x\n", start_addr);
+       move.l    -8(A6),-(A7)
+       pea       @sram_t~1_26.L
+       jsr       (A2)
+       addq.w    #8,A7
+; printf("End address: %x\n", end_addr);
+       move.l    -4(A6),-(A7)
+       pea       @sram_t~1_27.L
+       jsr       (A2)
+       addq.w    #8,A7
+; if (data_length == 1) {
+       move.l    -24(A6),D0
+       cmp.l     #1,D0
+       bne       main_1
+; byte = byte_data (data_pattern);
+       move.l    -20(A6),-(A7)
+       jsr       _byte_data
+       addq.w    #4,A7
+       move.b    D0,D5
+; printf ("Test data: %x\n",byte);
+       and.l     #255,D5
+       move.l    D5,-(A7)
+       pea       @sram_t~1_28.L
+       jsr       (A2)
+       addq.w    #8,A7
+; result = byte_test(byte, addr_array);
+       move.l    A3,-(A7)
+       and.l     #255,D5
+       move.l    D5,-(A7)
+       jsr       _byte_test
+       addq.w    #8,A7
+       move.l    D0,D2
+       bra       main_5
 main_1:
-       bra       main_1
+; } else if (data_length == 2) {
+       move.l    -24(A6),D0
+       cmp.l     #2,D0
+       bne       main_3
+; word = word_data (data_pattern);
+       move.l    -20(A6),-(A7)
+       jsr       _word_data
+       addq.w    #4,A7
+       move.w    D0,D4
+; printf ("Test data: %x\n", word);
+       and.l     #65535,D4
+       move.l    D4,-(A7)
+       pea       @sram_t~1_29.L
+       jsr       (A2)
+       addq.w    #8,A7
+; result = word_test (word, addr_array);
+       move.l    A3,-(A7)
+       and.l     #65535,D4
+       move.l    D4,-(A7)
+       jsr       _word_test
+       addq.w    #8,A7
+       move.l    D0,D2
+       bra       main_5
+main_3:
+; } else if (data_length == 3) {
+       move.l    -24(A6),D0
+       cmp.l     #3,D0
+       bne.s     main_5
+; long_word = long_word_data (data_pattern);
+       move.l    -20(A6),-(A7)
+       jsr       _long_word_data
+       addq.w    #4,A7
+       move.l    D0,D3
+; printf ("Test data: %x\n", long_word);
+       move.l    D3,-(A7)
+       pea       @sram_t~1_30.L
+       jsr       (A2)
+       addq.w    #8,A7
+; result = long_word_test (long_word, addr_array);
+       move.l    A3,-(A7)
+       move.l    D3,-(A7)
+       jsr       _long_word_test
+       addq.w    #8,A7
+       move.l    D0,D2
+main_5:
+; }
+; if (result == 1) {
+       cmp.l     #1,D2
+       bne.s     main_7
+; printf("Test passed!\n");
+       pea       @sram_t~1_31.L
+       jsr       (A2)
+       addq.w    #4,A7
+main_7:
+; }
+; while(1)
+main_9:
+       bra       main_9
 ; ;
 ; }
        section   const
 @sram_t~1_1:
-       dc.b      13,10,32,97,100,100,114,49,95,118,97,108,117
-       dc.b      101,58,32,37,100,0
+       dc.b      13,10,100,97,116,97,32,98,117,115,32,116,101
+       dc.b      115,116,32,100,97,116,97,58,32,37,100,0
 @sram_t~1_2:
-       dc.b      13,10,72,101,108,108,111,32,87,111,114,108,100
-       dc.b      46,0
+       dc.b      13,10,100,97,116,97,32,98,117,115,32,116,101
+       dc.b      115,116,32,102,97,105,108,101,100,32,119,105
+       dc.b      116,104,32,100,97,116,97,58,32,37,100,0
+@sram_t~1_3:
+       dc.b      13,10,100,97,116,97,32,98,117,115,32,116,101
+       dc.b      115,116,32,112,97,115,115,101,100,33,0
+@sram_t~1_4:
+       dc.b      13,10,80,114,111,118,105,100,101,32,116,104
+       dc.b      101,32,115,116,97,114,116,32,97,100,100,114
+       dc.b      101,115,115,32,111,102,32,116,104,101,32,116
+       dc.b      101,115,116,46,10,0
+@sram_t~1_5:
+       dc.b      37,120,0
+@sram_t~1_6:
+       dc.b      84,104,101,32,115,116,97,114,116,32,97,100,100
+       dc.b      114,101,115,115,32,105,115,32,115,109,97,108
+       dc.b      108,101,114,32,116,104,97,110,32,48,120,48,56
+       dc.b      48,50,48,48,48,48,44,32,105,110,118,97,108,105
+       dc.b      100,33,10,0
+@sram_t~1_7:
+       dc.b      84,104,101,32,115,116,97,114,116,32,97,100,100
+       dc.b      114,101,115,115,32,105,115,32,98,105,103,103
+       dc.b      101,114,32,116,104,97,110,32,48,120,48,56,48
+       dc.b      51,48,48,48,48,44,32,105,110,118,97,108,105
+       dc.b      100,33,10,0
+@sram_t~1_8:
+       dc.b      84,104,101,32,115,116,97,114,116,32,97,100,100
+       dc.b      114,101,115,115,32,112,114,111,118,105,100,101
+       dc.b      100,32,105,115,32,111,100,100,44,32,110,101
+       dc.b      101,100,32,97,110,32,101,118,101,110,32,111
+       dc.b      110,101,33,10,0
+@sram_t~1_9:
+       dc.b      83,116,97,114,116,32,97,100,100,114,101,115
+       dc.b      115,32,118,97,108,105,100,46,10,0
+@sram_t~1_10:
+       dc.b      13,10,80,114,111,118,105,100,101,32,116,104
+       dc.b      101,32,101,110,100,32,97,100,100,114,101,115
+       dc.b      115,32,111,102,32,116,104,101,32,116,101,115
+       dc.b      116,46,10,0
+@sram_t~1_11:
+       dc.b      37,120,0
+@sram_t~1_12:
+       dc.b      84,104,101,32,101,110,100,32,97,100,100,114
+       dc.b      101,115,115,32,105,115,32,115,109,97,108,108
+       dc.b      101,114,32,116,104,97,110,32,48,120,48,56,48
+       dc.b      50,48,48,48,48,44,32,105,110,118,97,108,105
+       dc.b      100,33,10,0
+@sram_t~1_13:
+       dc.b      84,104,101,32,101,110,100,32,97,100,100,114
+       dc.b      101,115,115,32,105,115,32,98,105,103,103,101
+       dc.b      114,32,116,104,97,110,32,48,120,48,56,48,51
+       dc.b      48,48,48,48,44,32,105,110,118,97,108,105,100
+       dc.b      33,10,0
+@sram_t~1_14:
+       dc.b      84,104,101,32,101,110,100,32,97,100,100,114
+       dc.b      101,115,115,32,112,114,111,118,105,100,101,100
+       dc.b      32,105,115,32,111,100,100,44,32,110,101,101
+       dc.b      100,32,97,110,32,101,118,101,110,32,111,110
+       dc.b      101,33,10,0
+@sram_t~1_15:
+       dc.b      69,110,100,32,97,100,100,114,101,115,115,32
+       dc.b      118,97,108,105,100,46,10,0
+@sram_t~1_16:
+       dc.b      76,111,99,97,116,105,111,110,32,37,120,44,32
+       dc.b      119,114,105,116,101,32,100,97,116,97,58,32,37
+       dc.b      120,44,32,114,101,97,100,32,100,97,116,97,58
+       dc.b      32,37,120,10,0
+@sram_t~1_17:
+       dc.b      84,101,115,116,32,102,97,105,108,101,100,32
+       dc.b      97,116,32,108,111,99,97,116,105,111,110,32,37
+       dc.b      100,33,10,0
+@sram_t~1_18:
+       dc.b      76,111,99,97,116,105,111,110,32,37,120,44,32
+       dc.b      119,114,105,116,101,32,100,97,116,97,58,32,37
+       dc.b      120,44,32,114,101,97,100,32,100,97,116,97,58
+       dc.b      32,37,120,10,0
+@sram_t~1_19:
+       dc.b      84,101,115,116,32,102,97,105,108,101,100,32
+       dc.b      97,116,32,108,111,99,97,116,105,111,110,32,37
+       dc.b      120,33,10,0
+@sram_t~1_20:
+       dc.b      76,111,99,97,116,105,111,110,32,37,120,44,32
+       dc.b      119,114,105,116,101,32,100,97,116,97,58,32,37
+       dc.b      120,44,32,114,101,97,100,32,100,97,116,97,58
+       dc.b      32,37,120,10,0
+@sram_t~1_21:
+       dc.b      84,101,115,116,32,102,97,105,108,101,100,32
+       dc.b      97,116,32,108,111,99,97,116,105,111,110,32,37
+       dc.b      100,33,10,0
+@sram_t~1_22:
+       dc.b      13,10,68,111,32,121,111,117,32,119,97,110,116
+       dc.b      32,116,104,101,32,100,97,116,97,32,116,111,32
+       dc.b      98,101,32,49,46,32,98,121,116,101,115,44,32
+       dc.b      50,46,32,119,111,114,100,115,44,32,111,114,32
+       dc.b      51,46,32,108,111,110,103,32,119,111,114,100
+       dc.b      115,63,32,80,114,111,118,105,100,101,32,116
+       dc.b      104,101,32,105,110,116,101,103,101,114,32,98
+       dc.b      101,108,111,119,46,10,0
+@sram_t~1_23:
+       dc.b      37,100,0
+@sram_t~1_24:
+       dc.b      13,10,68,111,32,121,111,117,32,119,97,110,116
+       dc.b      32,116,104,101,32,100,97,116,97,32,116,111,32
+       dc.b      98,101,32,99,111,109,112,111,115,101,100,32
+       dc.b      111,102,32,40,104,101,120,41,32,49,46,32,48
+       dc.b      44,32,50,46,32,53,44,32,51,46,32,65,44,32,111
+       dc.b      114,32,52,46,32,70,63,32,80,114,111,118,105
+       dc.b      100,101,32,116,104,101,32,105,110,116,101,103
+       dc.b      101,114,32,98,101,108,111,119,46,10,0
+@sram_t~1_25:
+       dc.b      37,100,0
+@sram_t~1_26:
+       dc.b      83,116,97,114,116,32,97,100,100,114,101,115
+       dc.b      115,58,32,37,120,10,0
+@sram_t~1_27:
+       dc.b      69,110,100,32,97,100,100,114,101,115,115,58
+       dc.b      32,37,120,10,0
+@sram_t~1_28:
+       dc.b      84,101,115,116,32,100,97,116,97,58,32,37,120
+       dc.b      10,0
+@sram_t~1_29:
+       dc.b      84,101,115,116,32,100,97,116,97,58,32,37,120
+       dc.b      10,0
+@sram_t~1_30:
+       dc.b      84,101,115,116,32,100,97,116,97,58,32,37,120
+       dc.b      10,0
+@sram_t~1_31:
+       dc.b      84,101,115,116,32,112,97,115,115,101,100,33
+       dc.b      10,0
        section   bss
        xdef      _i
 _i:
@@ -526,4 +1329,7 @@ _Timer3Count:
        xdef      _Timer4Count
 _Timer4Count:
        ds.b      1
+       xref      LDIV
+       xref      _scanf
+       xref      ULDIV
        xref      _printf

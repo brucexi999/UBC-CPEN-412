@@ -3987,16 +3987,169 @@ EnterString_3:
        unlk      A6
        rts
 ; }
+; /*
+; int data_bus_test (void) {
+; unsigned short test_data = 1;
+; int shift_count;
+; for (shift_count = 0; shift_count < 16; shift_count++){
+; printf("\r\ndata bus test data: %d", test_data);
+; sram_base = test_data;
+; if (sram_base != test_data ) {
+; printf ("\r\ndata bus test failed with data: %d", test_data);
+; return 0;
+; }
+; test_data = test_data << 1; 
+; }
+; printf ("\r\ndata bus test passed!");
+; return 0; 
+; }
+; // Returning an array containing the start and the end address of the test (two hex numbers)
+; void ask_addr_range (unsigned int* addr_array, int data_length) {
+; int start_addr_valid = 0;
+; int end_addr_valid = 0;
+; while (!start_addr_valid) {
+; printf("\r\nProvide the start address of the test.\n");
+; scanf("%x", addr_array);
+; if (addr_array[0] < 134348800) {
+; printf ("The start address is smaller than 0x08020000, invalid!\n");
+; } else if (addr_array[0] > 134414336) {
+; printf ("The start address is bigger than 0x08030000, invalid!\n");
+; } else { // If the data length is words or long words, check whether the start address is odd 
+; if (data_length > 1 && addr_array[0] % 2 != 0) {
+; printf("The start address provided is odd, need an even one!\n");
+; } else {
+; printf ("Start address valid.\n");
+; start_addr_valid = 1;
+; } 
+; }
+; }
+; while (!end_addr_valid) {
+; printf("\r\nProvide the end address of the test.\n");
+; scanf("%x", addr_array+1);
+; if (addr_array[1] < 134348800) {
+; printf ("The end address is smaller than 0x08020000, invalid!\n");
+; } else if (addr_array[1] > 134414336)
+; {
+; printf ("The end address is bigger than 0x08030000, invalid!\n");
+; } else { 
+; if (data_length > 1 && addr_array[1] % 2 != 0) {
+; printf("The end address provided is odd, need an even one!\n");
+; } else {
+; printf ("End address valid.\n");
+; end_addr_valid = 1;
+; } 
+; }
+; }
+; }
+; // Return the byte data with the correct pattern
+; unsigned char byte_data (int data_pattern){
+; if (data_pattern == 1) {
+; return 0;
+; } else if (data_pattern == 2) {
+; return 0x55;
+; } else if (data_pattern == 3) {
+; return 0xaa;
+; } else if (data_pattern == 4) {
+; return 0xff;
+; } 
+; }
+; // Return the word data (16 bits) with the correct pattern
+; unsigned short word_data (int data_pattern){
+; if (data_pattern == 1) {
+; return 0;
+; } else if (data_pattern == 2) {
+; return 0x5555;
+; } else if (data_pattern == 3) {
+; return 0xaaaa;
+; } else if (data_pattern == 4) {
+; return 0xffff;
+; } 
+; }
+; // Return the long word data (32 bits) with the correct pattern
+; unsigned int long_word_data (int data_pattern){
+; if (data_pattern == 1) {
+; return 0;
+; } else if (data_pattern == 2) {
+; return 0x55555555;
+; } else if (data_pattern == 3) {
+; return 0xaaaaaaaa;
+; } else if (data_pattern == 4) {
+; return 0xffffffff;
+; } 
+; }
+; int byte_test (unsigned char byte, unsigned int* addr_array) {
+; unsigned int start_addr = addr_array[0];
+; unsigned int end_addr = addr_array[1];
+; volatile unsigned char *test_addr = (unsigned char *) start_addr;
+; int i;
+; for (i = 0; i < end_addr - start_addr; i ++) {
+; test_addr = (unsigned char *) start_addr + i; 
+; *test_addr = byte;
+; if (i % 10000 == 0){
+; printf("Location %x, write data: %x, read data: %x\n", test_addr, byte, *test_addr);
+; }
+; if (*test_addr != byte) {
+; printf("Test failed at location %d!\n", test_addr);
+; return 0;
+; }
+; }
+; return 1;
+; }
+; int word_test (unsigned short word, unsigned int* addr_array) {
+; unsigned int start_addr = addr_array[0];
+; unsigned int end_addr = addr_array[1];
+; volatile unsigned short *test_addr = (volatile unsigned short *) start_addr;
+; int i;
+; for (i = 0; i < (end_addr - start_addr); i++) {
+; test_addr = start_addr + i;
+; *test_addr = word;
+; if (i % 10000 == 0){
+; printf("Location %x, write data: %x, read data: %x\n", test_addr, word, *test_addr);
+; }
+; if (*test_addr != word) {
+; printf("Test failed at location %x!\n", test_addr);
+; return 0;
+; }
+; }
+; return 1;
+; }
+; int long_word_test (unsigned int long_word, unsigned int* addr_array) {
+; unsigned int start_addr = addr_array[0];
+; unsigned int end_addr = addr_array[1];
+; volatile unsigned int *test_addr = (volatile unsigned int *) start_addr;
+; int i;
+; for (i = 0; i < (end_addr - start_addr); i++) {
+; test_addr = start_addr + i; 
+; *test_addr = long_word;
+; if (i % 10000 == 0){
+; printf("Location %x, write data: %x, read data: %x\n", test_addr, long_word, *test_addr);
+; }
+; if (*test_addr != long_word) {
+; printf("Test failed at location %d!\n", test_addr);
+; return 0;
+; }
+; }
+; return 1;
+; }
+; */
 ; void MemoryTest(void)
 ; {
        xdef      _MemoryTest
 _MemoryTest:
-       link      A6,#-24
+       link      A6,#-60
 ; unsigned int *RamPtr, counter1=1 ;
-       move.l    #1,-18(A6)
+       move.l    #1,-54(A6)
 ; register unsigned int i ;
 ; unsigned int Start, End ;
 ; char c ;
+; int data_length;
+; int data_pattern;
+; unsigned int addr_array[2];
+; unsigned int start_addr, end_addr;
+; unsigned char byte;
+; unsigned short word;
+; unsigned int long_word;
+; int result;
 ; printf("\r\nStart Address: ") ;
        pea       @m68kde~2_144.L
        jsr       _printf
@@ -4005,7 +4158,7 @@ _MemoryTest:
        clr.l     -(A7)
        jsr       _Get8HexDigits
        addq.w    #4,A7
-       move.l    D0,-10(A6)
+       move.l    D0,-46(A6)
 ; printf("\r\nEnd Address: ") ;
        pea       @m68kde~2_145.L
        jsr       _printf
@@ -4014,11 +4167,37 @@ _MemoryTest:
        clr.l     -(A7)
        jsr       _Get8HexDigits
        addq.w    #4,A7
-       move.l    D0,-6(A6)
+       move.l    D0,-42(A6)
        unlk      A6
        rts
-; // TODO
-; // add your code to test memory here using 32 bit reads and writes of data between the start and end of memory
+; //data_bus_test();
+; /*printf("\r\nDo you want the data to be 1. bytes, 2. words, or 3. long words? Provide the integer below.\n");
+; scanf("%d", &data_length);
+; printf("\r\nDo you want the data to be composed of (hex) 1. 0, 2. 5, 3. A, or 4. F? Provide the integer below.\n");
+; scanf("%d", &data_pattern);
+; ask_addr_range(addr_array, data_length);
+; start_addr = addr_array[0];
+; end_addr = addr_array[1];
+; printf("Start address: %x\n", start_addr);
+; printf("End address: %x\n", end_addr);
+; if (data_length == 1) {
+; byte = byte_data (data_pattern);
+; printf ("Test data: %x\n",byte);
+; result = byte_test(byte, addr_array);
+; } else if (data_length == 2) {
+; word = word_data (data_pattern);
+; printf ("Test data: %x\n", word);
+; result = word_test (word, addr_array);
+; } else if (data_length == 3) {
+; long_word = long_word_data (data_pattern);
+; printf ("Test data: %x\n", long_word);
+; result = long_word_test (long_word, addr_array);
+; }
+; if (result == 1) {
+; printf("Test passed!\n");
+; }
+; while(1)
+; ;*/
 ; }
 ; void main(void)
 ; {

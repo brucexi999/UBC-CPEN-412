@@ -1,5 +1,5 @@
 Analysis & Synthesis report for MC68K
-Mon Jan 16 11:44:28 2023
+Mon Jan 23 17:17:06 2023
 Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 
 
@@ -110,7 +110,7 @@ refer to the applicable agreement for further details.
 +-------------------------------------------------------------------------------+
 ; Analysis & Synthesis Summary                                                  ;
 +---------------------------------+---------------------------------------------+
-; Analysis & Synthesis Status     ; Successful - Mon Jan 16 11:44:27 2023       ;
+; Analysis & Synthesis Status     ; Successful - Mon Jan 23 17:17:06 2023       ;
 ; Quartus Prime Version           ; 18.1.0 Build 625 09/12/2018 SJ Lite Edition ;
 ; Revision Name                   ; MC68K                                       ;
 ; Top-level Entity Name           ; MC68K                                       ;
@@ -2876,7 +2876,7 @@ Note: In order to hide this table in the UI and the text report file, please set
 +----------------+--------------+
 ; Partition Name ; Elapsed Time ;
 +----------------+--------------+
-; Top            ; 00:01:24     ;
+; Top            ; 00:01:29     ;
 +----------------+--------------+
 
 
@@ -2886,7 +2886,7 @@ Note: In order to hide this table in the UI and the text report file, please set
 Info: *******************************************************************
 Info: Running Quartus Prime Analysis & Synthesis
     Info: Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
-    Info: Processing started: Mon Jan 16 11:42:06 2023
+    Info: Processing started: Mon Jan 23 17:14:37 2023
 Info: Command: quartus_map --read_settings_files=on --write_settings_files=off MC68K -c MC68K
 Warning (18236): Number of processors has not been specified which may cause overloading on shared machines.  Set the global assignment NUM_PARALLEL_PROCESSORS in your QSF to an appropriate value for best performance.
 Info (20030): Parallel compilation is enabled and will use 4 of the 4 processors detected
@@ -3259,9 +3259,9 @@ Info (12128): Elaborating entity "altsyncram_ovl1" for hierarchy "OnChipROM16KWo
 Info (12021): Found 1 design units, including 1 entities, in source file db/altsyncram_akn2.tdf
     Info (12023): Found entity 1: altsyncram_akn2 File: C:/M68kV6.0-800by480/db/altsyncram_akn2.tdf Line: 33
 Info (12128): Elaborating entity "altsyncram_akn2" for hierarchy "OnChipROM16KWords:inst16|OnChipRom16KWord:inst3|altsyncram:altsyncram_component|altsyncram_ovl1:auto_generated|altsyncram_akn2:altsyncram1" File: C:/M68kV6.0-800by480/db/altsyncram_ovl1.tdf Line: 34
-Warning (113028): 1913 out of 16384 addresses are uninitialized. The Quartus Prime software will initialize them to "0". There are 2 warnings found, and 2 warnings are reported. File: C:/M68kV6.0-800by480/Programs/DebugMonitorCode/M68kdebugmonitor.mif Line: 1
+Warning (113028): 7047 out of 16384 addresses are uninitialized. The Quartus Prime software will initialize them to "0". There are 2 warnings found, and 2 warnings are reported. File: C:/M68kV6.0-800by480/Programs/DebugMonitorCode/M68kdebugmonitor.mif Line: 1
     Warning (113027): Addresses ranging from 96 to 511 are not initialized File: C:/M68kV6.0-800by480/Programs/DebugMonitorCode/M68kdebugmonitor.mif Line: 1
-    Warning (113027): Addresses ranging from 14887 to 16383 are not initialized File: C:/M68kV6.0-800by480/Programs/DebugMonitorCode/M68kdebugmonitor.mif Line: 1
+    Warning (113027): Addresses ranging from 9753 to 16383 are not initialized File: C:/M68kV6.0-800by480/Programs/DebugMonitorCode/M68kdebugmonitor.mif Line: 1
 Info (12021): Found 1 design units, including 1 entities, in source file db/decode_5la.tdf
     Info (12023): Found entity 1: decode_5la File: C:/M68kV6.0-800by480/db/decode_5la.tdf Line: 22
 Info (12128): Elaborating entity "decode_5la" for hierarchy "OnChipROM16KWords:inst16|OnChipRom16KWord:inst3|altsyncram:altsyncram_component|altsyncram_ovl1:auto_generated|altsyncram_akn2:altsyncram1|decode_5la:decode4" File: C:/M68kV6.0-800by480/db/altsyncram_akn2.tdf Line: 47
@@ -3378,7 +3378,7 @@ Warning (275009): Pin "DataIn" not connected
 Info (12128): Elaborating entity "InterruptPriorityEncoder" for hierarchy "InterruptPriorityEncoder:inst28"
 Info (12128): Elaborating entity "TraceExceptionGenerator" for hierarchy "TraceExceptionGenerator:inst30"
 Info (11170): Starting IP generation for the debug fabric: alt_sld_fab.
-Info (11172): 2023.01.16.11:42:47 Progress: Loading sldbe7d4d23/alt_sld_fab_wrapper_hw.tcl
+Info (11172): 2023.01.23.17:15:22 Progress: Loading sldbe7d4d23/alt_sld_fab_wrapper_hw.tcl
 Info (11172): Alt_sld_fab.alt_sld_fab: SLD fabric agents which did not specify prefer_host were connected to JTAG
 Info (11172): Alt_sld_fab: Generating alt_sld_fab "alt_sld_fab" for QUARTUS_SYNTH
 Info (11172): Alt_sld_fab: "alt_sld_fab" instantiated alt_sld_fab "alt_sld_fab"
@@ -3618,9 +3618,9 @@ Info (21057): Implemented 4735 device resources after synthesis - the final reso
     Info (21064): Implemented 376 RAM segments
     Info (21065): Implemented 4 PLLs
 Info: Quartus Prime Analysis & Synthesis was successful. 0 errors, 195 warnings
-    Info: Peak virtual memory: 4966 megabytes
-    Info: Processing ended: Mon Jan 16 11:44:28 2023
-    Info: Elapsed time: 00:02:22
-    Info: Total CPU time (on all processors): 00:02:06
+    Info: Peak virtual memory: 4991 megabytes
+    Info: Processing ended: Mon Jan 23 17:17:06 2023
+    Info: Elapsed time: 00:02:29
+    Info: Total CPU time (on all processors): 00:02:14
 
 
