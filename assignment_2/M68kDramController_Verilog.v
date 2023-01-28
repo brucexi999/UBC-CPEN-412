@@ -64,8 +64,14 @@ module M68kDramController_Verilog (
 		
 		reg  FPGAWritingtoSDram_H;								// When '1' enables FPGA data out lines leading to SDRAM to allow writing, otherwise they are set to Tri-State "Z"
 		reg  CPU_Dtack_L;											// Dtack back to CPU
-		reg  CPUReset_L;		
-
+		reg  CPUReset_L;
+		
+		reg loop_clk; // clk for 1 refresh + 3 NOP loop counter
+		reg unsigned [3:0] loop_counter; // counter for 1 refresh + 3 NOP loop
+		reg unsigned [3:0] loop_counter_initial; // initialise the counter
+		reg loop_counter_done_H; // active high loop counter done signal 
+		reg loop_counter_load_H; // active high loop counter load signal
+		parameter LoopCounterInitial = 4'd10;
 		// 5 bit Commands to the SDRam
 
 		parameter PoweringUp = 5'b00000 ;					// take CKE & CS low during power up phase, address and bank address = dont'care
@@ -95,8 +101,11 @@ module M68kDramController_Verilog (
 		parameter IssueFirstNOP = 5'h02;						// issuing 1st NOP after power up
 		parameter PrechargingAllBanks = 5'h03;
 		parameter Idle = 5'h04;			
-		
-		
+		parameter NOP_after_precharge = 5'd5; // issue NOP after precharging
+		parameter refresh = 5'd6; // Initialise the loop counter for 1 refresh + 3 NOP to 4'd10; 
+		parameter NOP1_refresh = 5'd7; // 1st NOP cycle after refresh
+		parameter NOP2_refresh = 5'd8; // 2nd NOP cycle after refresh
+		parameter NOP3_refresh = 5'd9; // 3rd NOP cycle after refresh
 		// TODO - Add your own states as per your own design
 		
 
@@ -132,6 +141,24 @@ module M68kDramController_Verilog (
 
 		if(RefreshTimer == 16'd0) 								// if timer has counted down to 0
 			RefreshTimerDone_H <= 1 ;						// output '1' to indicate time has elapsed
+	end
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// (1 Refresh + 3 NOP) * 10 loop counter
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	always@(posedge loop_clk or posedge loop_counter_load_H) begin
+		if (loop_counter_load_H == 1)
+			loop_counter <= loop_counter_initial;
+		else if (loop_counter != 4'd0)
+			loop_counter <= loop_counter - 4'd1;
+	end
+
+	always@(loop_counter) begin
+		loop_counter_done_H <= 0;
+
+		if (loop_counter == 4'd0)
+			loop_counter_done_H <= 1; 
 	end
 	
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////-
@@ -228,7 +255,9 @@ module M68kDramController_Verilog (
 		SDramWriteData <= 16'h0000 ;								// nothing to write in particular
 		CPUReset_L <= 0 ;												// default is reset to CPU (for the moment, though this will change when design is complete so that reset-out goes high at the end of the dram initialisation phase to allow CPU to resume)
 		FPGAWritingtoSDram_H <= 0 ;								// default is to tri-state the FPGA data lines leading to bi-directional SDRam data lines, i.e. assume a read operation
-
+		loop_counter_initial <= 0; // no loop counter value
+		loop_clk <= 0; // loop_clk only goes high at the end of a (1 refresh + 3 NOP) loop
+		loop_counter_load_H <= 0; // does not load loop counter
 		// put your current state/next state decision making logic here - here are a few states to get you started
 		// during the initialising state, the drams have to power up and we cannot access them for a specified period of time (100 us)
 		// we are going to load the timer above with a value equiv to 100us and then wait for timer to time out
@@ -252,7 +281,44 @@ module M68kDramController_Verilog (
 		else if(CurrentState == IssueFirstNOP) begin	 		// issue a valid NOP
 			Command <= NOP ;											// send a valid NOP command to the dram chip
 			NextState <= PrechargingAllBanks;
-		end		
+		end
+
+		else if(CurrentState == PrechargingAllBanks) begin     
+			Command <= PrechargeAllBanks; // send the precharge all banks command
+			DramAddress[10] <= 1'b1; // set A10 to sdram to 1
+			NextState <= NOP_after_precharge; 
+		end
+
+		else if(CurrentState == NOP_after_precharge) begin
+			Command <= NOP;
+			loop_counter_load_H <= 1; // at this state we also initialise the loop counter
+			loop_counter_initial <= LoopCounterInitial;
+			NextState <= refresh; 
+		end
+
+		else if(CurrentState == refresh) begin
+			Command <= AutoRefresh;
+			loop_clk <= 1; // toggle the loop clk such that loop_counter += -1
+			NextState <= NOP1_refresh;
+		end
+
+		else if (CurrentState == NOP1_refresh) begin
+			Command <= NOP;
+			NextState <= NOP2_refresh;
+		end
+
+		else if (CurrentState == NOP2_refresh) begin
+			Command <= NOP;
+			NextState <= NOP3_refresh;
+		end
+
+		else if (CurrentState == NOP3_refresh) begin  // the last state of 1 iteration
+			Command <= NOP;
+			if (loop_counter_done_H == 0) // if loop_counter isn't done, start a new iteration
+				NextState <= refresh;
+			else if (loop_counter_done_H == 1)
+				NextState <= Idle;
+		end
 		
 
 		// add your other states and conditions and outputs here

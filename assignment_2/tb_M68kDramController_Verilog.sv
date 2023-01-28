@@ -58,7 +58,7 @@ module Tb_SdramController ();
     initial begin
         Reset_L = 1; #5;
         Reset_L = 0; #10;
-        Reset_L = 1; #200;
+        Reset_L = 1; #800;
         $stop; 
     end
 
