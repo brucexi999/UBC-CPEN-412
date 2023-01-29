@@ -106,6 +106,18 @@ module M68kDramController_Verilog (
 		parameter NOP1_refresh = 5'd7; // 1st NOP cycle after refresh
 		parameter NOP2_refresh = 5'd8; // 2nd NOP cycle after refresh
 		parameter NOP3_refresh = 5'd9; // 3rd NOP cycle after refresh
+		parameter program_mode_reg = 5'd10; // send the ModeRegisterSet command, set DramAddress to 'h0220, set BankAddress to 2'b00 
+		parameter NOP1_mode = 5'd11; // 1st NOP cycle after mode reg programming
+		parameter NOP2_mode = 5'd12; // 2nd NOP cycle after mode reg programming
+		parameter NOP3_mode = 5'd13; // 3rd NOP cycle after mode reg programming
+		parameter load_refresh_timer = 5'd14; // load the refresh timer to 7.5 us
+		parameter precharge_all_1 = 5'd15; // the precharge all bank state but called when refresh timer is done
+		parameter NOP_after_precharge_1 = 5'd16; 
+		parameter refresh_1 = 5'd17;
+		parameter NOP1_refresh_1 = 5'd18; 
+		parameter NOP2_refresh_1 = 5'd19; 
+		parameter NOP3_refresh_1 = 5'd20;
+
 		// TODO - Add your own states as per your own design
 		
 
@@ -317,8 +329,76 @@ module M68kDramController_Verilog (
 			if (loop_counter_done_H == 0) // if loop_counter isn't done, start a new iteration
 				NextState <= refresh;
 			else if (loop_counter_done_H == 1)
-				NextState <= Idle;
+				NextState <= program_mode_reg;
 		end
+
+		else if (CurrentState == program_mode_reg) begin
+			Command <= ModeRegisterSet;
+			DramAddress <= 13'h0220; // use the address line to send operation code to the mode register
+			BankAddress <= 2'b00; // same as the default value, but to be cautious anyway
+			NextState <= NOP1_mode;
+		end
+
+		else if (CurrentState == NOP1_mode) begin
+			Command <= NOP;
+			NextState <= NOP2_mode;
+		end
+
+		else if (CurrentState == NOP2_mode) begin
+			Command <= NOP;
+			NextState <= NOP3_mode;
+		end
+
+		else if (CurrentState == NOP3_mode) begin
+			Command <= NOP;
+			NextState <= load_refresh_timer;
+		end
+
+		else if (CurrentState == load_refresh_timer) begin
+			Command <= NOP;
+			RefreshTimerLoad_H <= 1;
+			RefreshTimerValue <= 16'd8; // use 8 cycles for the ease of simulation 
+			NextState <= Idle;
+		end
+
+		else if (CurrentState == Idle) begin
+			Command <= NOP;
+			if (RefreshTimerDone_H == 1)
+				NextState <= precharge_all_1; // keep waiting in Idle state until refresh timer is done
+			else NextState <= Idle;
+		end
+
+		else if (CurrentState == precharge_all_1) begin
+			Command <= PrechargeAllBanks; // send the precharge all banks command
+			DramAddress[10] <= 1'b1; // set A10 to sdram to 1
+			NextState <= NOP_after_precharge_1;
+		end
+
+		else if(CurrentState == NOP_after_precharge_1) begin
+			Command <= NOP;
+			NextState <= refresh_1; 
+		end
+
+		else if(CurrentState == refresh_1) begin
+			Command <= AutoRefresh;
+			NextState <= NOP1_refresh_1;
+		end
+
+		else if (CurrentState == NOP1_refresh_1) begin
+			Command <= NOP;
+			NextState <= NOP2_refresh_1;
+		end
+
+		else if (CurrentState == NOP2_refresh_1) begin
+			Command <= NOP;
+			NextState <= NOP3_refresh_1;
+		end
+
+		else if (CurrentState == NOP3_refresh_1) begin
+			Command <= NOP;
+			NextState <= load_refresh_timer; // reload the refresh timer when the refresh procedure is done
+		end
+		
 		
 
 		// add your other states and conditions and outputs here
