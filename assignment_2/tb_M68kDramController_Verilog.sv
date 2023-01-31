@@ -1,3 +1,4 @@
+`timescale 1 ps/ 1 ps
 module Tb_SdramController ();
     logic Clock;							
     logic Reset_L;     						
@@ -58,7 +59,9 @@ module Tb_SdramController ();
     initial begin
         Reset_L = 1; #5;
         Reset_L = 0; #10;
-        Reset_L = 1; #2000;
+        Reset_L = 1; #100000;
+        //Reset_L = 0; #10;
+        //Reset_L = 1; #100000;
         $stop; 
     end
 

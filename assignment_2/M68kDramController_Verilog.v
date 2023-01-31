@@ -66,12 +66,11 @@ module M68kDramController_Verilog (
 		reg  CPU_Dtack_L;											// Dtack back to CPU
 		reg  CPUReset_L;
 		
-		reg loop_clk; // clk for 1 refresh + 3 NOP loop counter
-		reg unsigned [3:0] loop_counter; // counter for 1 refresh + 3 NOP loop
-		reg unsigned [3:0] loop_counter_initial; // initialise the counter
+		//reg loop_clk; // clk for 1 refresh + 3 NOP loop counter
+		reg unsigned [7:0] loop_counter; // counter for 1 refresh + 3 NOP loop
+		//reg unsigned [4:0] loop_counter_initial; // initialise the counter
 		reg loop_counter_done_H; // active high loop counter done signal 
-		reg loop_counter_load_H; // active high loop counter load signal
-		parameter LoopCounterInitial = 4'd10;
+		reg loop_counter_load_L; // active high loop counter load signal
 		// 5 bit Commands to the SDRam
 
 		parameter PoweringUp = 5'b00000 ;					// take CKE & CS low during power up phase, address and bank address = dont'care
@@ -102,7 +101,7 @@ module M68kDramController_Verilog (
 		parameter PrechargingAllBanks = 5'h03;
 		parameter Idle = 5'h04;			
 		parameter NOP_after_precharge = 5'd5; // issue NOP after precharging
-		parameter refresh = 5'd6; // Initialise the loop counter for 1 refresh + 3 NOP to 4'd10; 
+		parameter refresh = 5'd21; // Initialise the loop counter for 1 refresh + 3 NOP to 4'd10; 
 		parameter NOP1_refresh = 5'd7; // 1st NOP cycle after refresh
 		parameter NOP2_refresh = 5'd8; // 2nd NOP cycle after refresh
 		parameter NOP3_refresh = 5'd9; // 3rd NOP cycle after refresh
@@ -159,17 +158,17 @@ module M68kDramController_Verilog (
 // (1 Refresh + 3 NOP) * 10 loop counter
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	always@(posedge loop_clk or posedge loop_counter_load_H) begin
-		if (loop_counter_load_H == 1)
-			loop_counter <= loop_counter_initial;
-		else if (loop_counter != 4'd0)
-			loop_counter <= loop_counter - 4'd1;
+	always@(posedge Clock) begin
+		if (loop_counter_load_L == 0)
+			loop_counter <= 8'd36;
+		else if (loop_counter != 5'd0)
+			loop_counter <= loop_counter - 5'd1;
 	end
 
 	always@(loop_counter) begin
 		loop_counter_done_H <= 0;
 
-		if (loop_counter == 4'd0)
+		if (loop_counter == 5'd0)
 			loop_counter_done_H <= 1; 
 	end
 	
@@ -208,12 +207,12 @@ module M68kDramController_Verilog (
 			// when you are writing, you have to drive them to the value of SDramWriteData so that you 'present' your data to the dram chips
 			// of course during a write, the dram WE signal will need to be driven low and it will respond by tri-stating its outputs lines so you can drive data in to it
 			// remember the Dram chip has bi-directional data lines, when you read from it, it turns them on, when you write to it, it turns them off (tri-states them)
-			/*
+			
 			if(FPGAWritingtoSDram_H == 1) 			// if CPU is doing a write, we need to turn on the FPGA data out lines to the SDRam and present Dram with CPU data 
 				SDram_DQ	<= SDramWriteData ;
 			else
 				SDram_DQ	<= 16'bZZZZZZZZZZZZZZZZ;			// otherwise tri-state the FPGA data output lines to the SDRAM for anything other than writing to it
-			*/
+			
 			DramState <= CurrentState ;					// output current state - useful for debugging so you can see you state machine changing states etc
 		end
 	end	
@@ -267,15 +266,15 @@ module M68kDramController_Verilog (
 		SDramWriteData <= 16'h0000 ;								// nothing to write in particular
 		CPUReset_L <= 0 ;												// default is reset to CPU (for the moment, though this will change when design is complete so that reset-out goes high at the end of the dram initialisation phase to allow CPU to resume)
 		FPGAWritingtoSDram_H <= 0 ;								// default is to tri-state the FPGA data lines leading to bi-directional SDRam data lines, i.e. assume a read operation
-		loop_counter_initial <= 0; // no loop counter value
-		loop_clk <= 0; // loop_clk only goes high at the end of a (1 refresh + 3 NOP) loop
-		loop_counter_load_H <= 0; // does not load loop counter
+		//loop_counter_initial <= 0; // no loop counter value
+		//loop_clk <= 0; // loop_clk only goes high at the end of a (1 refresh + 3 NOP) loop
+		loop_counter_load_L <= 1; // does not load loop counter
 		// put your current state/next state decision making logic here - here are a few states to get you started
 		// during the initialising state, the drams have to power up and we cannot access them for a specified period of time (100 us)
 		// we are going to load the timer above with a value equiv to 100us and then wait for timer to time out
 	
 		if(CurrentState == InitialisingState ) begin
-			TimerValue <= 16'h0008;									// chose a value equivalent to 100us at 50Mhz clock. 'd5000. For simulation, use 'd8. 
+			TimerValue <= 16'd4999;									// chose a value equivalent to 100us at 50Mhz clock. 'd5000. For simulation, use 'd8. 
 			TimerLoad_H <= 1 ;										// on next edge of clock, timer will be loaded and start to time out
 			Command <= PoweringUp ;									// clock enable and chip select to the Zentel Dram chip must be held low (disabled) during a power up phase
 			NextState <= WaitingForPowerUpState ;				// once we have loaded the timer, go to a new state where we wait for the 100us to elapse
@@ -303,29 +302,31 @@ module M68kDramController_Verilog (
 
 		else if(CurrentState == NOP_after_precharge) begin
 			Command <= NOP;
-			loop_counter_load_H <= 1; // at this state we also initialise the loop counter
-			loop_counter_initial <= LoopCounterInitial;
+			loop_counter_load_L <= 0; // at this state we also initialise the loop counter
 			NextState <= refresh; 
 		end
-
+		
 		else if(CurrentState == refresh) begin
 			Command <= AutoRefresh;
-			loop_clk <= 1; // toggle the loop clk such that loop_counter += -1
+			//loop_clk <= 1; // toggle the loop clk such that loop_counter += -1
 			NextState <= NOP1_refresh;
 		end
 
-		else if (CurrentState == NOP1_refresh) begin
-			Command <= NOP;
+		else if	(CurrentState == NOP1_refresh) begin
+			Command <= AutoRefresh;
+			//CPUReset_L <= 1;
 			NextState <= NOP2_refresh;
 		end
 
 		else if (CurrentState == NOP2_refresh) begin
 			Command <= NOP;
+			//CPUReset_L <= 1;
 			NextState <= NOP3_refresh;
 		end
 
 		else if (CurrentState == NOP3_refresh) begin  // the last state of 1 iteration
 			Command <= NOP;
+			//CPUReset_L <= 1;
 			if (loop_counter_done_H == 0) // if loop_counter isn't done, start a new iteration
 				NextState <= refresh;
 			else if (loop_counter_done_H == 1)
@@ -333,6 +334,7 @@ module M68kDramController_Verilog (
 		end
 
 		else if (CurrentState == program_mode_reg) begin
+			//CPUReset_L <= 1;
 			Command <= ModeRegisterSet;
 			DramAddress <= 13'h0220; // use the address line to send operation code to the mode register
 			BankAddress <= 2'b00; // same as the default value, but to be cautious anyway
@@ -340,28 +342,33 @@ module M68kDramController_Verilog (
 		end
 
 		else if (CurrentState == NOP1_mode) begin
+			//CPUReset_L <= 1;
 			Command <= NOP;
 			NextState <= NOP2_mode;
 		end
 
 		else if (CurrentState == NOP2_mode) begin
+			//CPUReset_L <= 1;
 			Command <= NOP;
 			NextState <= NOP3_mode;
 		end
 
 		else if (CurrentState == NOP3_mode) begin
+			//CPUReset_L <= 1;
 			Command <= NOP;
 			NextState <= load_refresh_timer;
 		end
 
 		else if (CurrentState == load_refresh_timer) begin
+			CPUReset_L <= 1; // finished sdram initialisation, de-assert the reset to cpu
 			Command <= NOP;
 			RefreshTimerLoad_H <= 1;
-			RefreshTimerValue <= 16'd8; // use 8 cycles for the ease of simulation 
+			RefreshTimerValue <= 16'd374; // use 8 cycles for the ease of simulation 
 			NextState <= Idle;
 		end
 
 		else if (CurrentState == Idle) begin
+			CPUReset_L <= 1; 
 			Command <= NOP;
 			if (RefreshTimerDone_H == 1)
 				NextState <= precharge_all_1; // keep waiting in Idle state until refresh timer is done
@@ -369,32 +376,38 @@ module M68kDramController_Verilog (
 		end
 
 		else if (CurrentState == precharge_all_1) begin
+			CPUReset_L <= 1; 
 			Command <= PrechargeAllBanks; // send the precharge all banks command
 			DramAddress[10] <= 1'b1; // set A10 to sdram to 1
 			NextState <= NOP_after_precharge_1;
 		end
 
 		else if(CurrentState == NOP_after_precharge_1) begin
+			CPUReset_L <= 1; 
 			Command <= NOP;
 			NextState <= refresh_1; 
 		end
 
 		else if(CurrentState == refresh_1) begin
+			CPUReset_L <= 1; 
 			Command <= AutoRefresh;
 			NextState <= NOP1_refresh_1;
 		end
 
 		else if (CurrentState == NOP1_refresh_1) begin
+			CPUReset_L <= 1; 
 			Command <= NOP;
 			NextState <= NOP2_refresh_1;
 		end
 
 		else if (CurrentState == NOP2_refresh_1) begin
+			CPUReset_L <= 1; 
 			Command <= NOP;
 			NextState <= NOP3_refresh_1;
 		end
 
 		else if (CurrentState == NOP3_refresh_1) begin
+			CPUReset_L <= 1; 
 			Command <= NOP;
 			NextState <= load_refresh_timer; // reload the refresh timer when the refresh procedure is done
 		end
