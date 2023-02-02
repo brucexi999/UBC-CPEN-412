@@ -99,7 +99,7 @@ module M68kDramController_Verilog (
 		parameter WaitingForPowerUpState = 5'h01	;		// waiting for power up state to complete
 		parameter IssueFirstNOP = 5'h02;						// issuing 1st NOP after power up
 		parameter PrechargingAllBanks = 5'h03;
-		parameter Idle = 5'h04;			
+		parameter Idle1 = 5'h04;			
 		parameter NOP_after_precharge = 5'd5; // issue NOP after precharging
 		parameter refresh = 5'd21; // Initialise the loop counter for 1 refresh + 3 NOP to 4'd10; 
 		parameter NOP1_refresh = 5'd7; // 1st NOP cycle after refresh
@@ -364,15 +364,15 @@ module M68kDramController_Verilog (
 			Command <= NOP;
 			RefreshTimerLoad_H <= 1;
 			RefreshTimerValue <= 16'd374; // use 8 cycles for the ease of simulation 
-			NextState <= Idle;
+			NextState <= Idle1;
 		end
 
-		else if (CurrentState == Idle) begin
+		else if (CurrentState == Idle1) begin
 			CPUReset_L <= 1; 
 			Command <= NOP;
 			if (RefreshTimerDone_H == 1)
 				NextState <= precharge_all_1; // keep waiting in Idle state until refresh timer is done
-			else NextState <= Idle;
+			else NextState <= Idle1;
 		end
 
 		else if (CurrentState == precharge_all_1) begin
