@@ -57,9 +57,22 @@ module Tb_SdramController ();
     end
 
     initial begin
+        DramSelect_L = 1; AS_L = 1; UDS_L = 1; LDS_L = 1; WE_L = 1; Address = 0; DataIn = 0; 
         Reset_L = 1; #5;
         Reset_L = 0; #10;
-        Reset_L = 1; #100000;
+        Reset_L = 1; #1050;
+        $monitor ("DataOut = %b", DataOut);
+        $monitor ("SDram_Addr = %b", SDram_Addr);
+        $monitor ("SDram_BA = %b", SDram_BA);
+        $monitor ("SDram_DQ = %b", SDram_DQ);
+        $monitor ("Dtack_L = %b", Dtack_L);
+        $monitor ("ResetOut_L = %b", ResetOut_L);
+
+        DramSelect_L = 0; AS_L = 0; Address[23:11] = 13'b1010101010101; Address[25:24] = 2'b11; Address[10:1] = 10'b0011001100 ; WE_L = 1; #20; // Write request from cpu
+        UDS_L = 0; DataIn = 16'h6969; #30;
+        UDS_L = 1; AS_L = 1; DramSelect_L = 1; #100;
+
+
         //Reset_L = 0; #10;
         //Reset_L = 1; #100000;
         $stop; 
