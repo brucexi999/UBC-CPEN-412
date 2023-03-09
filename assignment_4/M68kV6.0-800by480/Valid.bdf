@@ -23,7 +23,7 @@ refer to the applicable agreement for further details.
 	(input)
 	(rect 128 264 296 280)
 	(text "INPUT" (rect 125 0 153 10)(font "Arial" (font_size 6)))
-	(text "ValidityBitIn" (rect 5 0 65 12)(font "Arial" ))
+	(text "ValidityBitIn" (rect 5 0 64 12)(font "Arial" ))
 	(pt 168 8)
 	(drawing
 		(line (pt 84 12)(pt 109 12))
@@ -55,7 +55,7 @@ refer to the applicable agreement for further details.
 	(input)
 	(rect 120 352 288 368)
 	(text "INPUT" (rect 125 0 153 10)(font "Arial" (font_size 6)))
-	(text "Clock" (rect 5 0 33 17)(font "Intel Clear" ))
+	(text "Clock" (rect 5 0 32 17)(font "Intel Clear" ))
 	(pt 168 8)
 	(drawing
 		(line (pt 84 12)(pt 109 12))
@@ -71,7 +71,7 @@ refer to the applicable agreement for further details.
 	(input)
 	(rect 120 320 288 336)
 	(text "INPUT" (rect 125 0 153 10)(font "Arial" (font_size 6)))
-	(text "Index[4..0]" (rect 5 0 54 17)(font "Intel Clear" ))
+	(text "Index[8..0]" (rect 5 0 53 17)(font "Intel Clear" ))
 	(pt 168 8)
 	(drawing
 		(line (pt 84 12)(pt 109 12))
@@ -100,6 +100,31 @@ refer to the applicable agreement for further details.
 	)
 )
 (symbol
+	(rect 360 272 408 304)
+	(text "NOT" (rect 1 0 21 10)(font "Arial" (font_size 6)))
+	(text "inst1" (rect 3 21 25 38)(font "Intel Clear" ))
+	(port
+		(pt 0 16)
+		(input)
+		(text "IN" (rect 2 7 13 19)(font "Courier New" (bold))(invisible))
+		(text "IN" (rect 2 7 13 19)(font "Courier New" (bold))(invisible))
+		(line (pt 0 16)(pt 13 16))
+	)
+	(port
+		(pt 48 16)
+		(output)
+		(text "OUT" (rect 32 7 49 19)(font "Courier New" (bold))(invisible))
+		(text "OUT" (rect 32 7 49 19)(font "Courier New" (bold))(invisible))
+		(line (pt 39 16)(pt 48 16))
+	)
+	(drawing
+		(line (pt 13 25)(pt 13 7))
+		(line (pt 13 7)(pt 31 16))
+		(line (pt 13 25)(pt 31 16))
+		(circle (rect 31 12 39 20))
+	)
+)
+(symbol
 	(rect 416 240 632 368)
 	(text "Valid_Data" (rect 60 0 134 16)(font "Arial" (font_size 10)))
 	(text "inst" (rect 8 112 25 124)(font "Arial" ))
@@ -120,8 +145,8 @@ refer to the applicable agreement for further details.
 	(port
 		(pt 0 64)
 		(input)
-		(text "address[4..0]" (rect 0 0 75 14)(font "Arial" (font_size 8)))
-		(text "address[4..0]" (rect 4 46 79 60)(font "Arial" (font_size 8)))
+		(text "address[8..0]" (rect 0 0 75 14)(font "Arial" (font_size 8)))
+		(text "address[8..0]" (rect 4 46 79 60)(font "Arial" (font_size 8)))
 		(line (pt 0 64)(pt 88 64)(line_width 3))
 	)
 	(port
@@ -140,7 +165,7 @@ refer to the applicable agreement for further details.
 	)
 	(drawing
 		(text "1 bit" (rect 105 30 117 51)(font "Arial" )(vertical))
-		(text "32 words" (rect 120 16 132 59)(font "Arial" )(vertical))
+		(text "512 words" (rect 120 16 132 65)(font "Arial" )(vertical))
 		(text "Block type: AUTO" (rect 48 110 137 122)(font "Arial" ))
 		(line (pt 104 24)(pt 136 24))
 		(line (pt 136 24)(pt 136 96))
@@ -183,31 +208,6 @@ refer to the applicable agreement for further details.
 		(line (pt 0 0)(pt 0 0))
 	)
 )
-(symbol
-	(rect 360 272 408 304)
-	(text "NOT" (rect 1 0 21 10)(font "Arial" (font_size 6)))
-	(text "inst1" (rect 3 21 25 38)(font "Intel Clear" ))
-	(port
-		(pt 0 16)
-		(input)
-		(text "IN" (rect 2 7 13 19)(font "Courier New" (bold))(invisible))
-		(text "IN" (rect 2 7 13 19)(font "Courier New" (bold))(invisible))
-		(line (pt 0 16)(pt 13 16))
-	)
-	(port
-		(pt 48 16)
-		(output)
-		(text "OUT" (rect 32 7 49 19)(font "Courier New" (bold))(invisible))
-		(text "OUT" (rect 32 7 49 19)(font "Courier New" (bold))(invisible))
-		(line (pt 39 16)(pt 48 16))
-	)
-	(drawing
-		(line (pt 13 25)(pt 13 7))
-		(line (pt 13 7)(pt 31 16))
-		(line (pt 13 25)(pt 31 16))
-		(circle (rect 31 12 39 20))
-	)
-)
 (connector
 	(pt 296 272)
 	(pt 416 272)
@@ -219,21 +219,6 @@ refer to the applicable agreement for further details.
 (connector
 	(pt 336 296)
 	(pt 336 288)
-)
-(connector
-	(pt 416 304)
-	(pt 368 304)
-	(bus)
-)
-(connector
-	(pt 368 328)
-	(pt 368 304)
-	(bus)
-)
-(connector
-	(pt 368 328)
-	(pt 288 328)
-	(bus)
 )
 (connector
 	(pt 288 360)
@@ -258,4 +243,19 @@ refer to the applicable agreement for further details.
 (connector
 	(pt 408 288)
 	(pt 416 288)
+)
+(connector
+	(pt 288 328)
+	(pt 320 328)
+	(bus)
+)
+(connector
+	(pt 320 328)
+	(pt 320 304)
+	(bus)
+)
+(connector
+	(pt 416 304)
+	(pt 320 304)
+	(bus)
 )
