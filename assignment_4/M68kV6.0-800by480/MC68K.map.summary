@@ -1,13 +1,13 @@
-Analysis & Synthesis Status : Successful - Tue Mar 07 17:12:48 2023
-Quartus Prime Version : 19.1.0 Build 670 09/22/2019 SJ Lite Edition
+Analysis & Synthesis Status : Successful - Sun Mar 12 13:35:17 2023
+Quartus Prime Version : 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 Revision Name : MC68K
 Top-level Entity Name : MC68K
 Family : Cyclone V
 Logic utilization (in ALMs) : N/A
-Total registers : 1585
+Total registers : 1352
 Total pins : 238
 Total virtual pins : 0
-Total block memory bits : 2,436,336
+Total block memory bits : 2,365,512
 Total DSP Blocks : 0
 Total HSSI RX PCSs : 0
 Total HSSI PMA RX Deserializers : 0
