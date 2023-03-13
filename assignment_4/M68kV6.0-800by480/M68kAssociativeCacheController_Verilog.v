@@ -43,10 +43,10 @@ module M68kAssociativeCacheController_Verilog (
 		output reg unsigned [3:0] ValidBit_WE_L,						// 4 bits for 4 blocks to store a valid bit
 		
 		output reg unsigned [31:0] AddressBusOutToDramController,	// address bus from Cache to Dram controller
-		output reg unsigned [24:0] TagDataOut,								// 25 bit address to store in the tag Cache
+		output reg unsigned [20:0] TagDataOut,								// 25 bit address to store in the tag Cache
 		output reg unsigned [2:0] WordAddress,								// upto 8 words in a Cache line
 		output reg ValidBitOut_H,												// indicates the cache line is valid
-		output reg unsigned [2:0] Index,										// 3 bit Line for 8 
+		output reg unsigned [6:0] Index,										// 3 bit Line for 8 
 	
 		input unsigned [3:0] ValidHit_H,									// indicates if any block in valid and a hit for the set
 		input unsigned [3:0] Valid_H,										// indicates if any block in valid
@@ -158,8 +158,8 @@ module M68kAssociativeCacheController_Verilog (
 		AddressBusOutToDramController[3:1]	<= 3'b000;								// all reads to Dram have lower 3 address lines set to 0 for a Cache line regardless of 68k address
 		AddressBusOutToDramController[0] 	<= 0;										// to avoid inferring a latch for this bit
 		
-		TagDataOut							<= AddressBusInFrom68k[31:7];				// tag is 25 bits
-		Index									<= AddressBusInFrom68k[6:4];				// cache Line is 3 bits for 8 Lines 4 way cache
+		TagDataOut							<= AddressBusInFrom68k[31:11];				// tag is 25 bits
+		Index									<= AddressBusInFrom68k[10:4];				// cache Line is 3 bits for 8 Lines 4 way cache
 		
 		UDS_DramController_L				<= UDS_L;
 		LDS_DramController_L	   		<= LDS_L;
@@ -200,19 +200,19 @@ module M68kAssociativeCacheController_Verilog (
 		else if(CurrentState == InvalidateCache) begin	  						
 			
 			// burst counter should now be 0 when we first enter this state, as it was reset in state above
-			if(BurstCounter == 8) 														// if we have done all cache lines
+			if(BurstCounter == 128) 														// if we have done all cache lines
 				NextState 						<= Idle;
 			
 			else begin
 				NextState						<= InvalidateCache;					// assume we stay here
-				Index	 							<= BurstCounter[2:0];				// 3 bit Line address for Index for 8 set/lines of cache
+				Index	 							<= BurstCounter[6:0];				// 3 bit Line address for Index for 8 set/lines of cache
 				
 				// clear the validity bits for each cache
 				ValidBitOut_H 					<=	0;		
 				ValidBit_WE_L					<= 4'b0000;
 				
 				// clear the address tags for each cache set
-				TagDataOut						<= 25'b0000000000000000000000000;	
+				TagDataOut						<= 21'b000000000000000000000;	
 				TagCache_WE_L					<= 4'b0000;							// clear all tag bits in each Line
 				
 				// clear the LRU bits for each cache Line
