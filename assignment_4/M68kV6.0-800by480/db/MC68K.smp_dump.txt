@@ -105,11 +105,15 @@ micro_state.div14 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 
 micro_state.div15 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 
 
 State Machine - |MC68K|AssociativeCachedDramController:inst|AssociativeDramCache:inst|M68kAssociativeCacheController_Verilog:inst6|ReplaceBlockNumber
-Name ReplaceBlockNumber.11 ReplaceBlockNumber.10 ReplaceBlockNumber.01 ReplaceBlockNumber.00 
-ReplaceBlockNumber.00 0 0 0 0 
-ReplaceBlockNumber.01 0 0 1 1 
-ReplaceBlockNumber.10 0 1 0 1 
-ReplaceBlockNumber.11 1 0 0 1 
+Name ReplaceBlockNumber.111 ReplaceBlockNumber.110 ReplaceBlockNumber.101 ReplaceBlockNumber.100 ReplaceBlockNumber.011 ReplaceBlockNumber.010 ReplaceBlockNumber.001 ReplaceBlockNumber.000 
+ReplaceBlockNumber.000 0 0 0 0 0 0 0 0 
+ReplaceBlockNumber.001 0 0 0 0 0 0 1 1 
+ReplaceBlockNumber.010 0 0 0 0 0 1 0 1 
+ReplaceBlockNumber.011 0 0 0 0 1 0 0 1 
+ReplaceBlockNumber.100 0 0 0 1 0 0 0 1 
+ReplaceBlockNumber.101 0 0 1 0 0 0 0 1 
+ReplaceBlockNumber.110 0 1 0 0 0 0 0 1 
+ReplaceBlockNumber.111 1 0 0 0 0 0 0 1 
 
 State Machine - |MC68K|AssociativeCachedDramController:inst|AssociativeDramCache:inst|M68kAssociativeCacheController_Verilog:inst6|CurrentState
 Name CurrentState.WaitForEndOfCacheRead CurrentState.WriteDataToDram CurrentState.EndBurstFill CurrentState.BurstFill CurrentState.CASDelay2 CurrentState.CASDelay1 CurrentState.ReadDataFromDramIntoCache CurrentState.CheckForCacheHit CurrentState.Idle CurrentState.InvalidateCache CurrentState.Reset 

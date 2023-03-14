@@ -1,5 +1,5 @@
 Flow report for MC68K
-Sun Mar 12 18:43:21 2023
+Mon Mar 13 17:47:45 2023
 Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 
 
@@ -40,18 +40,18 @@ refer to the applicable agreement for further details.
 +-------------------------------------------------------------------------------+
 ; Flow Summary                                                                  ;
 +---------------------------------+---------------------------------------------+
-; Flow Status                     ; Successful - Sun Mar 12 18:43:21 2023       ;
+; Flow Status                     ; Successful - Mon Mar 13 17:47:45 2023       ;
 ; Quartus Prime Version           ; 18.1.0 Build 625 09/12/2018 SJ Lite Edition ;
 ; Revision Name                   ; MC68K                                       ;
 ; Top-level Entity Name           ; MC68K                                       ;
 ; Family                          ; Cyclone V                                   ;
 ; Device                          ; 5CSEMA5F31C6                                ;
 ; Timing Models                   ; Final                                       ;
-; Logic utilization (in ALMs)     ; 2,871 / 32,070 ( 9 % )                      ;
-; Total registers                 ; 1461                                        ;
+; Logic utilization (in ALMs)     ; 3,113 / 32,070 ( 10 % )                     ;
+; Total registers                 ; 1479                                        ;
 ; Total pins                      ; 238 / 457 ( 52 % )                          ;
 ; Total virtual pins              ; 0                                           ;
-; Total block memory bits         ; 2,437,744 / 4,065,280 ( 60 % )              ;
+; Total block memory bits         ; 2,515,056 / 4,065,280 ( 62 % )              ;
 ; Total DSP Blocks                ; 0 / 87 ( 0 % )                              ;
 ; Total HSSI RX PCSs              ; 0                                           ;
 ; Total HSSI PMA RX Deserializers ; 0                                           ;
@@ -67,7 +67,7 @@ refer to the applicable agreement for further details.
 +-------------------+---------------------+
 ; Option            ; Setting             ;
 +-------------------+---------------------+
-; Start date & time ; 03/12/2023 18:35:14 ;
+; Start date & time ; 03/13/2023 17:37:09 ;
 ; Main task         ; Compilation         ;
 ; Revision Name     ; MC68K               ;
 +-------------------+---------------------+
@@ -79,7 +79,7 @@ refer to the applicable agreement for further details.
 ; Assignment Name                                   ; Value                                  ; Default Value ; Entity Name ; Section Id     ;
 +---------------------------------------------------+----------------------------------------+---------------+-------------+----------------+
 ; ADV_NETLIST_OPT_SYNTH_WYSIWYG_REMAP               ; On                                     ; Off           ; --          ; --             ;
-; COMPILER_SIGNATURE_ID                             ; 70491211430949.167867131418988         ; --            ; --          ; --             ;
+; COMPILER_SIGNATURE_ID                             ; 70491211430949.167875422909032         ; --            ; --          ; --             ;
 ; DO_COMBINED_ANALYSIS                              ; -- (Not supported for targeted family) ; Off           ; --          ; --             ;
 ; EDA_GENERATE_FUNCTIONAL_NETLIST                   ; Off                                    ; --            ; --          ; eda_simulation ;
 ; EDA_GENERATE_GATE_LEVEL_SIMULATION_COMMAND_SCRIPT ; Off                                    ; --            ; --          ; eda_simulation ;
@@ -140,12 +140,12 @@ refer to the applicable agreement for further details.
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
 ; Module Name          ; Elapsed Time ; Average Processors Used ; Peak Virtual Memory ; Total CPU Time (on all processors) ;
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
-; Analysis & Synthesis ; 00:02:24     ; 1.0                     ; 4970 MB             ; 00:02:14                           ;
-; Fitter               ; 00:04:22     ; 1.4                     ; 7042 MB             ; 00:07:20                           ;
-; Assembler            ; 00:00:19     ; 1.0                     ; 4926 MB             ; 00:00:16                           ;
-; Timing Analyzer      ; 00:00:46     ; 2.6                     ; 5438 MB             ; 00:01:12                           ;
-; EDA Netlist Writer   ; 00:00:06     ; 1.0                     ; 4968 MB             ; 00:00:05                           ;
-; Total                ; 00:07:57     ; --                      ; --                  ; 00:11:07                           ;
+; Analysis & Synthesis ; 00:03:04     ; 1.0                     ; 4972 MB             ; 00:02:17                           ;
+; Fitter               ; 00:05:48     ; 1.4                     ; 7106 MB             ; 00:07:53                           ;
+; Assembler            ; 00:00:24     ; 1.0                     ; 4926 MB             ; 00:00:16                           ;
+; Timing Analyzer      ; 00:00:57     ; 2.6                     ; 5448 MB             ; 00:01:01                           ;
+; EDA Netlist Writer   ; 00:00:07     ; 1.0                     ; 4976 MB             ; 00:00:05                           ;
+; Total                ; 00:10:20     ; --                      ; --                  ; 00:11:32                           ;
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
 
 

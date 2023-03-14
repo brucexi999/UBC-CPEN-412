@@ -38,9 +38,9 @@ module M68kAssociativeCacheController_Verilog (
 		output reg DtackTo68k_L,											// Dtack back to 68k at end of operation
 		
 		// Cache memory write signals
-		output reg unsigned [3:0] TagCache_WE_L,						// 4 bits for 4 blocks to store an address in Cache
-		output reg unsigned [3:0] DataCache_WE_L,						// 4 bits for 4 blocks to store data in Cache
-		output reg unsigned [3:0] ValidBit_WE_L,						// 4 bits for 4 blocks to store a valid bit
+		output reg unsigned [7:0] TagCache_WE_L,						// 4 bits for 4 blocks to store an address in Cache
+		output reg unsigned [7:0] DataCache_WE_L,						// 4 bits for 4 blocks to store data in Cache
+		output reg unsigned [7:0] ValidBit_WE_L,						// 4 bits for 4 blocks to store a valid bit
 		
 		output reg unsigned [31:0] AddressBusOutToDramController,	// address bus from Cache to Dram controller
 		output reg unsigned [20:0] TagDataOut,								// 25 bit address to store in the tag Cache
@@ -48,10 +48,10 @@ module M68kAssociativeCacheController_Verilog (
 		output reg ValidBitOut_H,												// indicates the cache line is valid
 		output reg unsigned [6:0] Index,										// 3 bit Line for 8 
 	
-		input unsigned [3:0] ValidHit_H,									// indicates if any block in valid and a hit for the set
-		input unsigned [3:0] Valid_H,										// indicates if any block in valid
-		input unsigned [2:0] LRUBits_In,	
-		output reg unsigned [2:0] LRUBits_Out,	
+		input unsigned [7:0] ValidHit_H,									// indicates if any block in valid and a hit for the set
+		input unsigned [7:0] Valid_H,										// indicates if any block in valid
+		input unsigned [6:0] LRUBits_In,	
+		output reg unsigned [6:0] LRUBits_Out,	
 		output reg LRU_WE_L,
 
 		// debugging only
@@ -84,13 +84,13 @@ module M68kAssociativeCacheController_Verilog (
 	reg BurstCounterReset_L;								// reset for the above counter
 	
 	// 2 bit register to hold the block number and a signla to store it 
-	reg unsigned [1:0] ReplaceBlockNumber;				// register to hold the number of the block/way where new cache data will be loaded
-	reg unsigned [1:0] ReplaceBlockNumberData;		// data to store in the above register
+	reg unsigned [2:0] ReplaceBlockNumber;				// register to hold the number of the block/way where new cache data will be loaded
+	reg unsigned [2:0] ReplaceBlockNumberData;		// data to store in the above register
 	reg LoadReplacementBlockNumber_H;					// signal to load the replceblocknumber with the new data above
 	
 	// signals for the least recently used bits utilised in cache replacement policy
 	reg  LRUBits_Load_H;
-	reg  unsigned [2:0]  LRUBits;
+	reg  unsigned [6:0]  LRUBits;
 
 	
 	
@@ -167,18 +167,18 @@ module M68kAssociativeCacheController_Verilog (
 		AS_DramController_L				<= AS_L;
 		
 		DtackTo68k_L						<= 1;												// don't supply until we are ready
-		TagCache_WE_L 						<= 4'b1111;										// don't write Cache address to any block
-		DataCache_WE_L 					<= 4'b1111;										// don't write Cache data to any block
-		ValidBit_WE_L						<= 4'b1111;										// don't write valid data to any block
+		TagCache_WE_L 						<= 8'b11111111;										// don't write Cache address to any block
+		DataCache_WE_L 					<= 8'b11111111;										// don't write Cache data to any block
+		ValidBit_WE_L						<= 8'b11111111;										// don't write valid data to any block
 		ValidBitOut_H						<= 0;												// line invalid
 		DramSelectFromCache_L 			<= 1;												// don't give the Dram controller a select signal since we might not always want to cycle the Dram if we have a hit during a read
 		WordAddress							<= 3'b000;										// default is byte 0 in 8 byte Cache line	
 		
 		BurstCounterReset_L 				<= 1;												// default is that burst counter can run (and wrap around if needed), we'll control when to reset it		
 		
-		ReplaceBlockNumberData 			<= 2'b00;			
+		ReplaceBlockNumberData 			<= 3'b000;			
 		LoadReplacementBlockNumber_H 	<= 0 ;											// don't latch by default
-		LRUBits_Out							<= 3'b000;
+		LRUBits_Out							<= 7'b0000000;
 		LRU_WE_L								<= 1;												// dont write	
 		LRUBits_Load_H						<= 0;
 		
@@ -209,14 +209,14 @@ module M68kAssociativeCacheController_Verilog (
 				
 				// clear the validity bits for each cache
 				ValidBitOut_H 					<=	0;		
-				ValidBit_WE_L					<= 4'b0000;
+				ValidBit_WE_L					<= 8'b00000000;
 				
 				// clear the address tags for each cache set
 				TagDataOut						<= 21'b000000000000000000000;	
-				TagCache_WE_L					<= 4'b0000;							// clear all tag bits in each Line
+				TagCache_WE_L					<= 8'b00000000;							// clear all tag bits in each Line
 				
 				// clear the LRU bits for each cache Line
-				LRUBits_Out						<= 3'b000;
+				LRUBits_Out						<= 7'b0000000;
 				LRU_WE_L							<= 0;
 			end
 		end
@@ -256,37 +256,65 @@ module M68kAssociativeCacheController_Verilog (
 				WordAddress <= AddressBusInFrom68k[3:1];
 				DtackTo68k_L <= 0;
 				NextState <= WaitForEndOfCacheRead;
-				if (LRUBits[0] == 0 && LRUBits[1] == 0) begin
-					LRUBits_Out <= {LRUBits[2],2'b11}; 
+				if (LRUBits[0] == 0 && LRUBits[1] == 0 && LRUBits[3] == 0) begin
+					LRUBits_Out <= {LRUBits[6:4],1'b1,LRUBits[2], 2'b11}; 
 				end
-				else if (LRUBits[0] == 0 && LRUBits[1] == 1) begin
-					LRUBits_Out <= {LRUBits[2],2'b01};
+				else if (LRUBits[0] == 0 && LRUBits[1] == 0 && LRUBits[3] == 1) begin
+					LRUBits_Out <= {LRUBits[6:4],1'b0,LRUBits[2], 2'b11};
 				end
-				else if (LRUBits[0] == 1 && LRUBits[2] == 0) begin
-					LRUBits_Out <= {1'b1, LRUBits[1],1'b0};
+				else if (LRUBits[0] == 0 && LRUBits[1] == 1 && LRUBits[4] == 0) begin
+					LRUBits_Out <= {LRUBits[6:5],1'b1,LRUBits[3:2], 2'b01};
+				end
+				else if (LRUBits[0] == 0 && LRUBits[1] == 1 && LRUBits[4] == 1) begin
+					LRUBits_Out <= {LRUBits[6:5],1'b0,LRUBits[3:2], 2'b01};
+				end
+				else if (LRUBits[0] == 1 && LRUBits[2] == 0 && LRUBits[5] == 0) begin
+					LRUBits_Out <= {LRUBits[6],1'b1,LRUBits[4:3], 1'b1, LRUBits[1], 1'b0};
+				end
+				else if (LRUBits[0] == 1 && LRUBits[2] == 0 && LRUBits[5] == 1) begin
+					LRUBits_Out <= {LRUBits[6],1'b0,LRUBits[4:3], 1'b1, LRUBits[1], 1'b0};
+				end
+				else if (LRUBits[0] == 1 && LRUBits[2] == 1 && LRUBits[6] == 0) begin
+					LRUBits_Out <= {1'b1, LRUBits[5:3], 1'b0, LRUBits[1], 1'b0};
 				end
 				else begin
-					LRUBits_Out <= {1'b0, LRUBits[1],1'b0};
+					LRUBits_Out <= {1'b0, LRUBits[5:3], 1'b0, LRUBits[1], 1'b0};
 				end
 				LRU_WE_L <= 0;
 			end
 			else begin // if there's a miss
 				DramSelectFromCache_L <= 0;
-				if (LRUBits[0] == 0 && LRUBits[1] == 0) begin // replace block #0
-					ReplaceBlockNumberData <= 2'b00;
-					LRUBits_Out <= {LRUBits[2],2'b11}; 
+				if (LRUBits[0] == 0 && LRUBits[1] == 0 && LRUBits[3] == 0) begin
+					ReplaceBlockNumberData <= 3'b000;
+					LRUBits_Out <= {LRUBits[6:4],1'b1,LRUBits[2], 2'b11}; 
 				end
-				else if (LRUBits[0] == 0 && LRUBits[1] == 1) begin
-					ReplaceBlockNumberData <= 2'b01; // replace block #1
-					LRUBits_Out <= {LRUBits[2],2'b01};
+				else if (LRUBits[0] == 0 && LRUBits[1] == 0 && LRUBits[3] == 1) begin
+					ReplaceBlockNumberData <= 3'b001;
+					LRUBits_Out <= {LRUBits[6:4],1'b0,LRUBits[2], 2'b11};
 				end
-				else if (LRUBits[0] == 1 && LRUBits[2] == 0) begin
-					ReplaceBlockNumberData <= 2'b10; // replace block #2
-					LRUBits_Out <= {1'b1, LRUBits[1],1'b0};
+				else if (LRUBits[0] == 0 && LRUBits[1] == 1 && LRUBits[4] == 0) begin
+					ReplaceBlockNumberData <= 3'b010;
+					LRUBits_Out <= {LRUBits[6:5],1'b1,LRUBits[3:2], 2'b01};
+				end
+				else if (LRUBits[0] == 0 && LRUBits[1] == 1 && LRUBits[4] == 1) begin
+					ReplaceBlockNumberData <= 3'b011;
+					LRUBits_Out <= {LRUBits[6:5],1'b0,LRUBits[3:2], 2'b01};
+				end
+				else if (LRUBits[0] == 1 && LRUBits[2] == 0 && LRUBits[5] == 0) begin
+					ReplaceBlockNumberData <= 3'b100;
+					LRUBits_Out <= {LRUBits[6],1'b1,LRUBits[4:3], 1'b1, LRUBits[1], 1'b0};
+				end
+				else if (LRUBits[0] == 1 && LRUBits[2] == 0 && LRUBits[5] == 1) begin
+					ReplaceBlockNumberData <= 3'b101;
+					LRUBits_Out <= {LRUBits[6],1'b0,LRUBits[4:3], 1'b1, LRUBits[1], 1'b0};
+				end
+				else if (LRUBits[0] == 1 && LRUBits[2] == 1 && LRUBits[6] == 0) begin
+					ReplaceBlockNumberData <= 3'b110;
+					LRUBits_Out <= {1'b1, LRUBits[5:3], 1'b0, LRUBits[1], 1'b0};
 				end
 				else begin
-					ReplaceBlockNumberData <= 2'b11; // replace block #3
-					LRUBits_Out <= {1'b0, LRUBits[1],1'b0};
+					ReplaceBlockNumberData <= 3'b111;
+					LRUBits_Out <= {1'b0, LRUBits[5:3], 1'b0, LRUBits[1], 1'b0};
 				end
 				LRU_WE_L <= 0;
 				LoadReplacementBlockNumber_H <= 1;
@@ -322,21 +350,37 @@ module M68kAssociativeCacheController_Verilog (
 				NextState <= CASDelay1;
 			end
 			ValidBitOut_H <= 1;
-			if (ReplaceBlockNumber == 2'b00) begin // decide which block to evict based on LRU
+			if (ReplaceBlockNumber == 3'b00) begin // decide which block to evict based on LRU
 				TagCache_WE_L[0] <= 0;
 				ValidBit_WE_L[0] <= 0;
 			end
-			else if (ReplaceBlockNumber == 2'b01) begin
+			else if (ReplaceBlockNumber == 3'b001) begin
 				TagCache_WE_L[1] <= 0;
 				ValidBit_WE_L[1] <= 0;
 			end
-			else if (ReplaceBlockNumber == 2'b10) begin
+			else if (ReplaceBlockNumber == 3'b010) begin
 				TagCache_WE_L[2] <= 0;
 				ValidBit_WE_L[2] <= 0;
 			end
-			else begin
+			else if (ReplaceBlockNumber == 3'b011) begin
 				TagCache_WE_L[3] <= 0;
 				ValidBit_WE_L[3] <= 0;
+			end
+			else if (ReplaceBlockNumber == 3'b100) begin
+				TagCache_WE_L[4] <= 0;
+				ValidBit_WE_L[4] <= 0;
+			end
+			else if (ReplaceBlockNumber == 3'b101) begin
+				TagCache_WE_L[5] <= 0;
+				ValidBit_WE_L[5] <= 0;
+			end
+			else if (ReplaceBlockNumber == 3'b110) begin
+				TagCache_WE_L[6] <= 0;
+				ValidBit_WE_L[6] <= 0;
+			end
+			else begin
+				TagCache_WE_L[7] <= 0;
+				ValidBit_WE_L[7] <= 0;
 			end
 		end
 						
@@ -377,17 +421,29 @@ module M68kAssociativeCacheController_Verilog (
 			end
 			else begin
 				WordAddress <= BurstCounter[2:0];
-				if (ReplaceBlockNumber == 2'b00) begin
+				if (ReplaceBlockNumber == 3'b000) begin
 					DataCache_WE_L[0] <= 0;
 				end
-				else if (ReplaceBlockNumber == 2'b01) begin
+				else if (ReplaceBlockNumber == 3'b001) begin
 					DataCache_WE_L[1] <= 0;
 				end
-				else if (ReplaceBlockNumber == 2'b10) begin
+				else if (ReplaceBlockNumber == 3'b010) begin
 					DataCache_WE_L[2] <= 0;
 				end
-				else begin
+				else if (ReplaceBlockNumber == 3'b011) begin
 					DataCache_WE_L[3] <= 0;
+				end
+				else if (ReplaceBlockNumber == 3'b100) begin
+					DataCache_WE_L[4] <= 0;
+				end
+				else if (ReplaceBlockNumber == 3'b101) begin
+					DataCache_WE_L[5] <= 0;
+				end
+				else if (ReplaceBlockNumber == 3'b110) begin
+					DataCache_WE_L[6] <= 0;
+				end
+				else begin
+					DataCache_WE_L[7] <= 0;
 				end
 			end
 		end
