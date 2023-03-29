@@ -1,0 +1,3724 @@
+680x0 MACRO ASSEMBLER   Version 5.00   (c) 1992-2005 Peter J. Fondse
+
+Date: 28 Mar 2023      Time: 21:01:05          Source: C:\M68KV6.0-800BY480\PROGRAMS\DEBUGMONITORCODE\USER_PROGRAM.SRC
+
+                       1          section   code
+                       2   **********************************************************************************************************
+                       3   * CSTART.ASM  -  C startup-code
+                       4   *
+                       5   *          Initialises the system prior to running the users main() program
+                       6   *
+                       7   *          1) Sets up the user program stack pointer
+                       8   *          2) Switches to User mode in the 68000
+                       9   *          3) Enables All Interrupts 1-7 on 68000
+                      10   *          4) Copies all initialised C program variables from Rom to Ram prior to running main()
+                      11   *
+                      12   **********************************************************************************************************
+00000000              13                   align
+                      14   
+                      15   
+                      16   **********************************************************************************************************
+                      17   * The Following ORG Statement marks the address of the start of the this CStart Program
+                      18   *
+                      19   * The debug Monitor and Flash Load and Program routines assume your program lives here
+                      20   **********************************************************************************************************
+08000000              21                   org       $08000000
+08000000  46FC 2000   22   start:          move.w    #$2000,SR             clear interrupts to enable all, move to supervisor mode
+                      23   
+                      24   ******************************************************************************************
+                      25   * Set unitialised global variables to 0 at startup
+                      26   ******************************************************************************************
+08000004  207C 0800   27   mainloop        movea.l   #BssStart,a0          point a0 to the start of the initialised data section held in ROM
+08000008  1CB4      
+0800000A  203C 0000   28                   move.l    #BssLength,d0         figure out how many bytes of C program variables data to copy
+0800000E  001C      
+08000010  6700 0024   29                   beq       go_main               if no data to copy go straight to program
+08000014  10FC 0000   30   Zeroinit        move.b    #0,(a0)+              copy the C program initialise variables from rom to ram
+08000018  5380        31                   subq.l    #1,d0
+0800001A  66F8        32                   bne       Zeroinit
+                      33   
+                      34   *******************************************************************************************
+                      35   * last minute initialisation before calling main
+                      36   *******************************************************************************************
+                      37   
+0800001C  23FC FFFF   38                   move.l    #-1,__ungetbuf         required for use of scanf() etc in C programs
+08000020  FFFF 0800 
+08000024  1CA8      
+08000026  42B9 0800   39                   clr.l     __allocp               used by malloc() in C
+0800002A  1CAC      
+0800002C  23FC 0800   40                   move.l    #heap,__heap           pointer to free memory
+08000030  1CD0 0800 
+08000034  1CB0      
+08000036  4EB9 0800   41   go_main         jsr       _main
+0800003A  0BC6      
+0800003C  60C2        42                   bra       start
+                      43   
+                      44   ; C:\M68KV6.0-800BY480\PROGRAMS\DEBUGMONITORCODE\M68KUSERPROGRAM (DE1).C - Compiled by CC68K  Version 5.00 (c) 1991-2005  Peter J. Fondse
+                      45   ; #include <stdio.h>
+                      46   ; #include <string.h>
+                      47   ; #include <ctype.h>
+                      48   ; //IMPORTANT
+                      49   ; //
+                      50   ; // Uncomment one of the two #defines below
+                      51   ; // Define StartOfExceptionVectorTable as 08030000 if running programs from sram or
+                      52   ; // 0B000000 for running programs from dram
+                      53   ; //
+                      54   ; // In your labs, you will initially start by designing a system with SRam and later move to
+                      55   ; // Dram, so these constants will need to be changed based on the version of the system you have
+                      56   ; // building
+                      57   ; //
+                      58   ; // The working 68k system SOF file posted on canvas that you can use for your pre-lab
+                      59   ; // is based around Dram so #define accordingly before building
+                      60   ; //SRAM
+                      61   ; //#define StartOfExceptionVectorTable 0x08030000
+                      62   ; //DRAM
+                      63   ; #define StartOfExceptionVectorTable 0x0B000000
+                      64   ; /**********************************************************************************************
+                      65   ; **	Parallel port addresses
+                      66   ; **********************************************************************************************/
+                      67   ; #define PortA   *(volatile unsigned char *)(0x00400000)
+                      68   ; #define PortB   *(volatile unsigned char *)(0x00400002)
+                      69   ; #define PortC   *(volatile unsigned char *)(0x00400004)
+                      70   ; #define PortD   *(volatile unsigned char *)(0x00400006)
+                      71   ; #define PortE   *(volatile unsigned char *)(0x00400008)
+                      72   ; /*********************************************************************************************
+                      73   ; **	Hex 7 seg displays port addresses
+                      74   ; *********************************************************************************************/
+                      75   ; #define HEX_A        *(volatile unsigned char *)(0x00400010)
+                      76   ; #define HEX_B        *(volatile unsigned char *)(0x00400012)
+                      77   ; #define HEX_C        *(volatile unsigned char *)(0x00400014)    // de2 only
+                      78   ; #define HEX_D        *(volatile unsigned char *)(0x00400016)    // de2 only
+                      79   ; /**********************************************************************************************
+                      80   ; **	LCD display port addresses
+                      81   ; **********************************************************************************************/
+                      82   ; #define LCDcommand   *(volatile unsigned char *)(0x00400020)
+                      83   ; #define LCDdata      *(volatile unsigned char *)(0x00400022)
+                      84   ; /********************************************************************************************
+                      85   ; **	Timer Port addresses
+                      86   ; *********************************************************************************************/
+                      87   ; #define Timer1Data      *(volatile unsigned char *)(0x00400030)
+                      88   ; #define Timer1Control   *(volatile unsigned char *)(0x00400032)
+                      89   ; #define Timer1Status    *(volatile unsigned char *)(0x00400032)
+                      90   ; #define Timer2Data      *(volatile unsigned char *)(0x00400034)
+                      91   ; #define Timer2Control   *(volatile unsigned char *)(0x00400036)
+                      92   ; #define Timer2Status    *(volatile unsigned char *)(0x00400036)
+                      93   ; #define Timer3Data      *(volatile unsigned char *)(0x00400038)
+                      94   ; #define Timer3Control   *(volatile unsigned char *)(0x0040003A)
+                      95   ; #define Timer3Status    *(volatile unsigned char *)(0x0040003A)
+                      96   ; #define Timer4Data      *(volatile unsigned char *)(0x0040003C)
+                      97   ; #define Timer4Control   *(volatile unsigned char *)(0x0040003E)
+                      98   ; #define Timer4Status    *(volatile unsigned char *)(0x0040003E)
+                      99   ; /*********************************************************************************************
+                     100   ; **	RS232 port addresses
+                     101   ; *********************************************************************************************/
+                     102   ; #define RS232_Control     *(volatile unsigned char *)(0x00400040)
+                     103   ; #define RS232_Status      *(volatile unsigned char *)(0x00400040)
+                     104   ; #define RS232_TxData      *(volatile unsigned char *)(0x00400042)
+                     105   ; #define RS232_RxData      *(volatile unsigned char *)(0x00400042)
+                     106   ; #define RS232_Baud        *(volatile unsigned char *)(0x00400044)
+                     107   ; /*********************************************************************************************
+                     108   ; **	PIA 1 and 2 port addresses
+                     109   ; *********************************************************************************************/
+                     110   ; #define PIA1_PortA_Data     *(volatile unsigned char *)(0x00400050)         // combined data and data direction register share same address
+                     111   ; #define PIA1_PortA_Control *(volatile unsigned char *)(0x00400052)
+                     112   ; #define PIA1_PortB_Data     *(volatile unsigned char *)(0x00400054)         // combined data and data direction register share same address
+                     113   ; #define PIA1_PortB_Control *(volatile unsigned char *)(0x00400056)
+                     114   ; #define PIA2_PortA_Data     *(volatile unsigned char *)(0x00400060)         // combined data and data direction register share same address
+                     115   ; #define PIA2_PortA_Control *(volatile unsigned char *)(0x00400062)
+                     116   ; #define PIA2_PortB_data     *(volatile unsigned char *)(0x00400064)         // combined data and data direction register share same address
+                     117   ; #define PIA2_PortB_Control *(volatile unsigned char *)(0x00400066)
+                     118   ; /*******************************************************************************************
+                     119   ; ** I2C address and common commands
+                     120   ; *******************************************************************************************/
+                     121   ; #define I2C_prescale_reg_L *(volatile unsigned char *) (0x00408000)
+                     122   ; #define I2C_prescale_reg_H *(volatile unsigned char *) (0x00408002)
+                     123   ; #define I2C_control_reg  *(volatile unsigned char *) (0x00408004)
+                     124   ; #define I2C_TX_reg  *(volatile unsigned char *) (0x00408006)
+                     125   ; #define I2C_RX_reg  *(volatile unsigned char *) (0x00408006)
+                     126   ; #define I2C_command_reg  *(volatile unsigned char *) (0x00408008)
+                     127   ; #define I2C_status_reg  *(volatile unsigned char *) (0x00408008)
+                     128   ; #define start_write_cmd_I2C (char) (0x91)          // generate start signal and enable write, clear any pending interrupt
+                     129   ; #define write_cmd_I2C (char) (0x11)            // send TX byte without generating a start signal
+                     130   ; #define stop_write_cmd_I2C (char) (0x51)
+                     131   ; #define stop_read_NACK_cmd_I2C (char) (0x69)
+                     132   ; #define read_ACK_cmd_I2C (char) (0x21)
+                     133   ; /*********************************************************************************************************************************
+                     134   ; * 
+                     135   ; * 
+                     136   ; (( DO NOT initialise global variables here, do it main even if you want 0
+                     137   ; (( it's a limitation of the compiler
+                     138   ; (( YOU HAVE BEEN WARNED
+                     139   ; *********************************************************************************************************************************/
+                     140   ; unsigned int i, x, y, z, PortA_Count;
+                     141   ; unsigned char Timer1Count, Timer2Count, Timer3Count, Timer4Count ;
+                     142   ; /*******************************************************************************************
+                     143   ; ** Function Prototypes
+                     144   ; *******************************************************************************************/
+                     145   ; int _getch( void );
+                     146   ; char xtod(int c);
+                     147   ; int Get1HexDigits(char *CheckSumPtr);
+                     148   ; int Get2HexDigits(char *CheckSumPtr);
+                     149   ; int Get4HexDigits(char *CheckSumPtr);
+                     150   ; int Get6HexDigits(char *CheckSumPtr);
+                     151   ; void Wait1ms(void);
+                     152   ; void Wait3ms(void);
+                     153   ; void Wait500ms (void);
+                     154   ; void Init_LCD(void) ;
+                     155   ; void LCDOutchar(int c);
+                     156   ; void LCDOutMess(char *theMessage);
+                     157   ; void LCDClearln(void);
+                     158   ; void LCDline1Message(char *theMessage);
+                     159   ; void LCDline2Message(char *theMessage);
+                     160   ; int sprintf(char *out, const char *format, ...) ;
+                     161   ; unsigned int ask_EEPROM_internal_addr(void);
+                     162   ; unsigned char ask_EEPROM_data(void);
+                     163   ; void EEPROM_internal_writting_polling(unsigned char slave_addr_RW);
+                     164   ; void I2C_init(void);
+                     165   ; void I2C_TX_command_status (char data, char command);
+                     166   ; void I2C_byte_write (void);
+                     167   ; void I2C_byte_read (void);
+                     168   ; unsigned int ask_EEPROM_addr_range(void);
+                     169   ; void I2C_multi_write (void);
+                     170   ; void I2C_multi_read (void);
+                     171   ; int boundry_checker (int intended_page_size, unsigned int current_addr);
+                     172   ; void DAC(void);
+                     173   ; unsigned char ask_ADC_channel (void);
+                     174   ; /*******************************************************************************************
+                     175   ; ** I2C functions
+                     176   ; *******************************************************************************************/
+                     177   ; unsigned int ask_EEPROM_internal_addr(void){
+                     178   _ask_EEPROM_internal_addr:
+0800003E  48E7 3000  179          movem.l   D2/D3,-(A7)
+                     180   ; // ask the internal EEPROM address, return an array, storing the upper byte at location 0, and the lower byte at 1, the block select at 2
+                     181   ; int valid = 0;
+08000042  4283       182          clr.l     D3
+                     183   ; unsigned int addr;
+                     184   ; printf("\r\nWhat is the internal EEPROM address you want to access? ");
+08000044  4879 0800  185          pea       @m68kus~1_1.L
+08000048  17C8      
+0800004A  4EB9 0800  186          jsr       _printf
+0800004E  0E42      
+08000050  584F       187          addq.w    #4,A7
+                     188   ; while (!valid){
+                     189   ask_EEPROM_internal_addr_1:
+08000052  4A83       190          tst.l     D3
+08000054  6628       191          bne.s     ask_EEPROM_internal_addr_3
+                     192   ; addr = Get6HexDigits(0);
+08000056  42A7       193          clr.l     -(A7)
+08000058  4EB9 0800  194          jsr       _Get6HexDigits
+0800005C  0A80      
+0800005E  584F       195          addq.w    #4,A7
+08000060  2400       196          move.l    D0,D2
+                     197   ; if (addr > 0x01ffff) { // 128k byte memory
+08000062  0C82 0001  198          cmp.l     #131071,D2
+08000066  FFFF      
+08000068  6310       199          bls.s     ask_EEPROM_internal_addr_4
+                     200   ; printf("\r\nAddress cannot be greater than 0x01ffff! Input again: ");
+0800006A  4879 0800  201          pea       @m68kus~1_2.L
+0800006E  1804      
+08000070  4EB9 0800  202          jsr       _printf
+08000074  0E42      
+08000076  584F       203          addq.w    #4,A7
+08000078  6002       204          bra.s     ask_EEPROM_internal_addr_5
+                     205   ask_EEPROM_internal_addr_4:
+                     206   ; } else {
+                     207   ; valid = 1;
+0800007A  7601       208          moveq     #1,D3
+                     209   ask_EEPROM_internal_addr_5:
+0800007C  60D4       210          bra       ask_EEPROM_internal_addr_1
+                     211   ask_EEPROM_internal_addr_3:
+                     212   ; }
+                     213   ; }
+                     214   ; return addr;
+0800007E  2002       215          move.l    D2,D0
+08000080  4CDF 000C  216          movem.l   (A7)+,D2/D3
+08000084  4E75       217          rts
+                     218   ; }
+                     219   ; unsigned char ask_EEPROM_data(void){
+                     220   _ask_EEPROM_data:
+08000086  4E56 FFFC  221          link      A6,#-4
+                     222   ; // ask the data to be written into the EEPROM
+                     223   ; unsigned char data;
+                     224   ; printf("\r\nWhat is the data you want to write into the EEPROM? ");
+0800008A  4879 0800  225          pea       @m68kus~1_3.L
+0800008E  183E      
+08000090  4EB9 0800  226          jsr       _printf
+08000094  0E42      
+08000096  584F       227          addq.w    #4,A7
+                     228   ; data = Get2HexDigits(0);
+08000098  42A7       229          clr.l     -(A7)
+0800009A  4EB9 0800  230          jsr       _Get2HexDigits
+0800009E  09FA      
+080000A0  584F       231          addq.w    #4,A7
+080000A2  1D40 FFFF  232          move.b    D0,-1(A6)
+                     233   ; return data;
+080000A6  102E FFFF  234          move.b    -1(A6),D0
+080000AA  4E5E       235          unlk      A6
+080000AC  4E75       236          rts
+                     237   ; }
+                     238   ; void EEPROM_internal_writting_polling(unsigned char slave_addr_RW){
+                     239   _EEPROM_internal_writting_pollin:
+080000AE  4E56 0000  240          link      A6,#0
+080000B2  2F02       241          move.l    D2,-(A7)
+                     242   ; int flag = 1;
+080000B4  7401       243          moveq     #1,D2
+                     244   ; // EEPROM acknowledge polling, wait for EEPROM's internal writting
+                     245   ; // send the writting control byte with a start signal
+                     246   ; I2C_TX_reg = slave_addr_RW;
+080000B6  13EE 000B  247          move.b    11(A6),4227078
+080000BA  0040 8006 
+                     248   ; while (flag) {
+                     249   EEPROM_internal_writting_pollin_1:
+080000BE  4A82       250          tst.l     D2
+080000C0  672A       251          beq.s     EEPROM_internal_writting_pollin_3
+                     252   ; I2C_command_reg = start_write_cmd_I2C;
+080000C2  13FC 0091  253          move.b    #145,4227080
+080000C6  0040 8008 
+                     254   ; // wait for the master core to finish transmitting
+                     255   ; while ((I2C_status_reg & 0x02) != 0){}
+                     256   EEPROM_internal_writting_pollin_4:
+080000CA  1039 0040  257          move.b    4227080,D0
+080000CE  8008      
+080000D0  C03C 0002  258          and.b     #2,D0
+080000D4  6702       259          beq.s     EEPROM_internal_writting_pollin_6
+080000D6  60F2       260          bra       EEPROM_internal_writting_pollin_4
+                     261   EEPROM_internal_writting_pollin_6:
+                     262   ; // if we didn't get ACK bit, then EEPROM is done writting, quit polling 
+                     263   ; if ((I2C_status_reg & 0x80) == 0) {
+080000D8  1039 0040  264          move.b    4227080,D0
+080000DC  8008      
+080000DE  C07C 00FF  265          and.w     #255,D0
+080000E2  C07C 0080  266          and.w     #128,D0
+080000E6  6602       267          bne.s     EEPROM_internal_writting_pollin_7
+                     268   ; flag = 0;
+080000E8  4282       269          clr.l     D2
+                     270   EEPROM_internal_writting_pollin_7:
+080000EA  60D2       271          bra       EEPROM_internal_writting_pollin_1
+                     272   EEPROM_internal_writting_pollin_3:
+080000EC  241F       273          move.l    (A7)+,D2
+080000EE  4E5E       274          unlk      A6
+080000F0  4E75       275          rts
+                     276   ; }
+                     277   ; }
+                     278   ; }
+                     279   ; void I2C_init (void) {
+                     280   _I2C_init:
+                     281   ; // disenable the core to allow us to set the prescale registers
+                     282   ; I2C_control_reg = 0x00; 
+080000F2  4239 0040  283          clr.b     4227076
+080000F6  8004      
+                     284   ; // set prescale registers to 0x0031
+                     285   ; I2C_prescale_reg_L = 0x31;
+080000F8  13FC 0031  286          move.b    #49,4227072
+080000FC  0040 8000 
+                     287   ; I2C_prescale_reg_H = 0x00;
+08000100  4239 0040  288          clr.b     4227074
+08000104  8002      
+                     289   ; // enable the core, disenable the interrupt
+                     290   ; I2C_control_reg = 0x80;
+08000106  13FC 0080  291          move.b    #128,4227076
+0800010A  0040 8004 
+0800010E  4E75       292          rts
+                     293   ; }
+                     294   ; void I2C_TX_command_status (unsigned char data, unsigned char command) {
+                     295   _I2C_TX_command_status:
+08000110  4E56 0000  296          link      A6,#0
+                     297   ; //printf("\r\ndata: %x", data);
+                     298   ; //printf("\r\ncommand: %x", command);
+                     299   ; I2C_TX_reg = data;
+08000114  13EE 000B  300          move.b    11(A6),4227078
+08000118  0040 8006 
+                     301   ; I2C_command_reg = command;
+0800011C  13EE 000F  302          move.b    15(A6),4227080
+08000120  0040 8008 
+                     303   ; // check the TIP bit, if it's 1, we wait here
+                     304   ; while ((I2C_status_reg & 0x02) != 0){}
+                     305   I2C_TX_command_status_1:
+08000124  1039 0040  306          move.b    4227080,D0
+08000128  8008      
+0800012A  C03C 0002  307          and.b     #2,D0
+0800012E  6702       308          beq.s     I2C_TX_command_status_3
+08000130  60F2       309          bra       I2C_TX_command_status_1
+                     310   I2C_TX_command_status_3:
+                     311   ; //printf("\r\nTIP done");
+                     312   ; // wait for acknowledge from slave
+                     313   ; while ((I2C_status_reg & 0x80) != 0){
+                     314   I2C_TX_command_status_4:
+08000132  1039 0040  315          move.b    4227080,D0
+08000136  8008      
+08000138  C07C 00FF  316          and.w     #255,D0
+0800013C  C07C 0080  317          and.w     #128,D0
+08000140  6702       318          beq.s     I2C_TX_command_status_6
+                     319   ; //printf("\r\n%x", I2C_status_reg);
+                     320   ; }
+08000142  60EE       321          bra       I2C_TX_command_status_4
+                     322   I2C_TX_command_status_6:
+08000144  4E5E       323          unlk      A6
+08000146  4E75       324          rts
+                     325   ; //printf("\r\nACK received");
+                     326   ; }
+                     327   ; void I2C_byte_write (void) {
+                     328   _I2C_byte_write:
+08000148  4E56 FFF8  329          link      A6,#-8
+0800014C  48E7 3020  330          movem.l   D2/D3/A2,-(A7)
+08000150  45F9 0800  331          lea       _I2C_TX_command_status.L,A2
+08000154  0110      
+                     332   ; unsigned char slave_addr_RW;
+                     333   ; unsigned char slave_write_data;
+                     334   ; unsigned char EEPROM_block_select;
+                     335   ; unsigned char EEPROM_internal_addr_H, EEPROM_internal_addr_L;
+                     336   ; unsigned int addr;
+                     337   ; int EEPROM_polling_flag = 1;
+08000156  2D7C 0000  338          move.l    #1,-4(A6)
+0800015A  0001 FFFC 
+                     339   ; printf("\r\nRandom EEPROM byte write");
+0800015E  4879 0800  340          pea       @m68kus~1_4.L
+08000162  1876      
+08000164  4EB9 0800  341          jsr       _printf
+08000168  0E42      
+0800016A  584F       342          addq.w    #4,A7
+                     343   ; // get the internal address
+                     344   ; addr = ask_EEPROM_internal_addr();
+0800016C  4EB9 0800  345          jsr       _ask_EEPROM_internal_addr
+08000170  003E      
+08000172  2400       346          move.l    D0,D2
+                     347   ; EEPROM_internal_addr_H = (addr & 0x00ff00) >> 8;
+08000174  2002       348          move.l    D2,D0
+08000176  C0BC 0000  349          and.l     #65280,D0
+0800017A  FF00      
+0800017C  E088       350          lsr.l     #8,D0
+0800017E  1D40 FFFA  351          move.b    D0,-6(A6)
+                     352   ; EEPROM_internal_addr_L = addr & 0x0000ff;
+08000182  2002       353          move.l    D2,D0
+08000184  C0BC 0000  354          and.l     #255,D0
+08000188  00FF      
+0800018A  1D40 FFFB  355          move.b    D0,-5(A6)
+                     356   ; EEPROM_block_select = (addr & 0x010000) >> 16;
+0800018E  2002       357          move.l    D2,D0
+08000190  C0BC 0001  358          and.l     #65536,D0
+08000194  0000      
+08000196  E088       359          lsr.l     #8,D0
+08000198  E088       360          lsr.l     #8,D0
+0800019A  1D40 FFF9  361          move.b    D0,-7(A6)
+                     362   ; slave_write_data = ask_EEPROM_data();
+0800019E  4EB9 0800  363          jsr       _ask_EEPROM_data
+080001A2  0086      
+080001A4  1D40 FFF8  364          move.b    D0,-8(A6)
+                     365   ; // EEPROM tag (b'1010) + chip select ('b00) + block select + write (0)
+                     366   ; slave_addr_RW = (0xa0 | (EEPROM_block_select << 1));
+080001A8  303C 00A0  367          move.w    #160,D0
+080001AC  122E FFF9  368          move.b    -7(A6),D1
+080001B0  E309       369          lsl.b     #1,D1
+080001B2  C27C 00FF  370          and.w     #255,D1
+080001B6  8041       371          or.w      D1,D0
+080001B8  1600       372          move.b    D0,D3
+                     373   ; // send the control byte and generate a start signal
+                     374   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+080001BA  4878 0091  375          pea       145
+080001BE  4883       376          ext.w     D3
+080001C0  48C3       377          ext.l     D3
+080001C2  2F03       378          move.l    D3,-(A7)
+080001C4  4E92       379          jsr       (A2)
+080001C6  504F       380          addq.w    #8,A7
+                     381   ; // write EEPROM internal addr (upper and lower byte), no start signal
+                     382   ; I2C_TX_command_status(EEPROM_internal_addr_H, write_cmd_I2C);
+080001C8  4878 0011  383          pea       17
+080001CC  122E FFFA  384          move.b    -6(A6),D1
+080001D0  4881       385          ext.w     D1
+080001D2  48C1       386          ext.l     D1
+080001D4  2F01       387          move.l    D1,-(A7)
+080001D6  4E92       388          jsr       (A2)
+080001D8  504F       389          addq.w    #8,A7
+                     390   ; I2C_TX_command_status(EEPROM_internal_addr_L, write_cmd_I2C);
+080001DA  4878 0011  391          pea       17
+080001DE  122E FFFB  392          move.b    -5(A6),D1
+080001E2  4881       393          ext.w     D1
+080001E4  48C1       394          ext.l     D1
+080001E6  2F01       395          move.l    D1,-(A7)
+080001E8  4E92       396          jsr       (A2)
+080001EA  504F       397          addq.w    #8,A7
+                     398   ; // write the actual data, and generate a stop condition after receiving an Acknowledge from the slave
+                     399   ; I2C_TX_command_status(slave_write_data, stop_write_cmd_I2C);
+080001EC  4878 0051  400          pea       81
+080001F0  122E FFF8  401          move.b    -8(A6),D1
+080001F4  4881       402          ext.w     D1
+080001F6  48C1       403          ext.l     D1
+080001F8  2F01       404          move.l    D1,-(A7)
+080001FA  4E92       405          jsr       (A2)
+080001FC  504F       406          addq.w    #8,A7
+                     407   ; EEPROM_internal_writting_polling(slave_addr_RW);
+080001FE  C6BC 0000  408          and.l     #255,D3
+08000202  00FF      
+08000204  2F03       409          move.l    D3,-(A7)
+08000206  4EB9 0800  410          jsr       _EEPROM_internal_writting_pollin
+0800020A  00AE      
+0800020C  584F       411          addq.w    #4,A7
+                     412   ; printf("\r\nEEPROM writting done!");
+0800020E  4879 0800  413          pea       @m68kus~1_5.L
+08000212  1892      
+08000214  4EB9 0800  414          jsr       _printf
+08000218  0E42      
+0800021A  584F       415          addq.w    #4,A7
+0800021C  4CDF 040C  416          movem.l   (A7)+,D2/D3/A2
+08000220  4E5E       417          unlk      A6
+08000222  4E75       418          rts
+                     419   ; }
+                     420   ; void I2C_byte_read (void) {
+                     421   _I2C_byte_read:
+08000224  4E56 FFFC  422          link      A6,#-4
+08000228  48E7 3820  423          movem.l   D2/D3/D4/A2,-(A7)
+0800022C  45F9 0800  424          lea       _I2C_TX_command_status.L,A2
+08000230  0110      
+                     425   ; char slave_addr_RW;
+                     426   ; unsigned char slave_read_data;
+                     427   ; unsigned char EEPROM_block_select;
+                     428   ; unsigned int addr;
+                     429   ; unsigned char EEPROM_internal_addr_H, EEPROM_internal_addr_L;
+                     430   ; printf("\r\nRandom EEPROM byte read");
+08000232  4879 0800  431          pea       @m68kus~1_6.L
+08000236  18AA      
+08000238  4EB9 0800  432          jsr       _printf
+0800023C  0E42      
+0800023E  584F       433          addq.w    #4,A7
+                     434   ; // get the internal address
+                     435   ; addr = ask_EEPROM_internal_addr();
+08000240  4EB9 0800  436          jsr       _ask_EEPROM_internal_addr
+08000244  003E      
+08000246  2600       437          move.l    D0,D3
+                     438   ; EEPROM_internal_addr_H = (addr & 0x00ff00) >> 8;
+08000248  2003       439          move.l    D3,D0
+0800024A  C0BC 0000  440          and.l     #65280,D0
+0800024E  FF00      
+08000250  E088       441          lsr.l     #8,D0
+08000252  1D40 FFFE  442          move.b    D0,-2(A6)
+                     443   ; EEPROM_internal_addr_L = addr & 0x0000ff;
+08000256  2003       444          move.l    D3,D0
+08000258  C0BC 0000  445          and.l     #255,D0
+0800025C  00FF      
+0800025E  1D40 FFFF  446          move.b    D0,-1(A6)
+                     447   ; EEPROM_block_select = (addr & 0x010000) >> 16;
+08000262  2003       448          move.l    D3,D0
+08000264  C0BC 0001  449          and.l     #65536,D0
+08000268  0000      
+0800026A  E088       450          lsr.l     #8,D0
+0800026C  E088       451          lsr.l     #8,D0
+0800026E  1800       452          move.b    D0,D4
+                     453   ; // EEPROM tag (b'1010) + chip select ('b00) + block select + write (0)
+                     454   ; slave_addr_RW = (0xa0 | (EEPROM_block_select << 1));
+08000270  303C 00A0  455          move.w    #160,D0
+08000274  1204       456          move.b    D4,D1
+08000276  E309       457          lsl.b     #1,D1
+08000278  C27C 00FF  458          and.w     #255,D1
+0800027C  8041       459          or.w      D1,D0
+0800027E  1400       460          move.b    D0,D2
+                     461   ; // send the control byte and generate a start signal
+                     462   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+08000280  4878 0091  463          pea       145
+08000284  4882       464          ext.w     D2
+08000286  48C2       465          ext.l     D2
+08000288  2F02       466          move.l    D2,-(A7)
+0800028A  4E92       467          jsr       (A2)
+0800028C  504F       468          addq.w    #8,A7
+                     469   ; // write EEPROM internal addr (upper and lower byte), no start signal
+                     470   ; I2C_TX_command_status(EEPROM_internal_addr_H, write_cmd_I2C);
+0800028E  4878 0011  471          pea       17
+08000292  122E FFFE  472          move.b    -2(A6),D1
+08000296  4881       473          ext.w     D1
+08000298  48C1       474          ext.l     D1
+0800029A  2F01       475          move.l    D1,-(A7)
+0800029C  4E92       476          jsr       (A2)
+0800029E  504F       477          addq.w    #8,A7
+                     478   ; I2C_TX_command_status(EEPROM_internal_addr_L, write_cmd_I2C);
+080002A0  4878 0011  479          pea       17
+080002A4  122E FFFF  480          move.b    -1(A6),D1
+080002A8  4881       481          ext.w     D1
+080002AA  48C1       482          ext.l     D1
+080002AC  2F01       483          move.l    D1,-(A7)
+080002AE  4E92       484          jsr       (A2)
+080002B0  504F       485          addq.w    #8,A7
+                     486   ; // EEPROM tag (b'1010) + chip select ('b00) + block select + read (1)
+                     487   ; slave_addr_RW = (0xa1 | (EEPROM_block_select << 1));
+080002B2  303C 00A1  488          move.w    #161,D0
+080002B6  1204       489          move.b    D4,D1
+080002B8  E309       490          lsl.b     #1,D1
+080002BA  C27C 00FF  491          and.w     #255,D1
+080002BE  8041       492          or.w      D1,D0
+080002C0  1400       493          move.b    D0,D2
+                     494   ; // send the control byte and generate a repeated start signal
+                     495   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+080002C2  4878 0091  496          pea       145
+080002C6  4882       497          ext.w     D2
+080002C8  48C2       498          ext.l     D2
+080002CA  2F02       499          move.l    D2,-(A7)
+080002CC  4E92       500          jsr       (A2)
+080002CE  504F       501          addq.w    #8,A7
+                     502   ; // set STO bit to 1, set RD bit to 1, set ACk to 1 (NACK), set IACK to 1
+                     503   ; I2C_command_reg = stop_read_NACK_cmd_I2C;
+080002D0  13FC 0069  504          move.b    #105,4227080
+080002D4  0040 8008 
+                     505   ; // polling the IF flag in the status reg
+                     506   ; while ((I2C_status_reg & 0x01) != 1){}
+                     507   I2C_byte_read_1:
+080002D8  1039 0040  508          move.b    4227080,D0
+080002DC  8008      
+080002DE  C03C 0001  509          and.b     #1,D0
+080002E2  0C00 0001  510          cmp.b     #1,D0
+080002E6  6702       511          beq.s     I2C_byte_read_3
+080002E8  60EE       512          bra       I2C_byte_read_1
+                     513   I2C_byte_read_3:
+                     514   ; slave_read_data = I2C_RX_reg;
+080002EA  1D79 0040  515          move.b    4227078,-3(A6)
+080002EE  8006 FFFD 
+                     516   ; printf("\r\nEEPROM reading done! %x",slave_read_data);
+080002F2  122E FFFD  517          move.b    -3(A6),D1
+080002F6  C2BC 0000  518          and.l     #255,D1
+080002FA  00FF      
+080002FC  2F01       519          move.l    D1,-(A7)
+080002FE  4879 0800  520          pea       @m68kus~1_7.L
+08000302  18C4      
+08000304  4EB9 0800  521          jsr       _printf
+08000308  0E42      
+0800030A  504F       522          addq.w    #8,A7
+0800030C  4CDF 041C  523          movem.l   (A7)+,D2/D3/D4/A2
+08000310  4E5E       524          unlk      A6
+08000312  4E75       525          rts
+                     526   ; }
+                     527   ; unsigned int ask_EEPROM_addr_range(void) {
+                     528   _ask_EEPROM_addr_range:
+08000314  48E7 3020  529          movem.l   D2/D3/A2,-(A7)
+08000318  45F9 0800  530          lea       _printf.L,A2
+0800031C  0E42      
+                     531   ; unsigned int size;
+                     532   ; int valid = 0;
+0800031E  4283       533          clr.l     D3
+                     534   ; printf("\r\nWhat is the EEPROM address range size (in hex) you want to access? ");
+08000320  4879 0800  535          pea       @m68kus~1_8.L
+08000324  18DE      
+08000326  4E92       536          jsr       (A2)
+08000328  584F       537          addq.w    #4,A7
+                     538   ; while (!valid) {
+                     539   ask_EEPROM_addr_range_1:
+0800032A  4A83       540          tst.l     D3
+0800032C  6600 0036  541          bne       ask_EEPROM_addr_range_3
+                     542   ; size = Get6HexDigits(0);
+08000330  42A7       543          clr.l     -(A7)
+08000332  4EB9 0800  544          jsr       _Get6HexDigits
+08000336  0A80      
+08000338  584F       545          addq.w    #4,A7
+0800033A  2400       546          move.l    D0,D2
+                     547   ; if (size > 0x020000) {
+0800033C  0C82 0002  548          cmp.l     #131072,D2
+08000340  0000      
+08000342  630C       549          bls.s     ask_EEPROM_addr_range_4
+                     550   ; printf ("\r\nSize cannot be larger than 'h020000 (128K bytes), input again: ");
+08000344  4879 0800  551          pea       @m68kus~1_9.L
+08000348  1924      
+0800034A  4E92       552          jsr       (A2)
+0800034C  584F       553          addq.w    #4,A7
+0800034E  6012       554          bra.s     ask_EEPROM_addr_range_7
+                     555   ask_EEPROM_addr_range_4:
+                     556   ; } else if (size == 0) {
+08000350  4A82       557          tst.l     D2
+08000352  660C       558          bne.s     ask_EEPROM_addr_range_6
+                     559   ; printf("\r\nSize cannot be 0, the minimum size is 'h000001 (1 byte), input again: ");
+08000354  4879 0800  560          pea       @m68kus~1_10.L
+08000358  1966      
+0800035A  4E92       561          jsr       (A2)
+0800035C  584F       562          addq.w    #4,A7
+0800035E  6002       563          bra.s     ask_EEPROM_addr_range_7
+                     564   ask_EEPROM_addr_range_6:
+                     565   ; } else {
+                     566   ; valid = 1;
+08000360  7601       567          moveq     #1,D3
+                     568   ask_EEPROM_addr_range_7:
+08000362  60C6       569          bra       ask_EEPROM_addr_range_1
+                     570   ask_EEPROM_addr_range_3:
+                     571   ; }
+                     572   ; }
+                     573   ; return size;
+08000364  2002       574          move.l    D2,D0
+08000366  4CDF 040C  575          movem.l   (A7)+,D2/D3/A2
+0800036A  4E75       576          rts
+                     577   ; }
+                     578   ; int boundry_checker (int intended_page_size, unsigned int current_addr) {
+                     579   _boundry_checker:
+0800036C  4E56 0000  580          link      A6,#0
+08000370  48E7 3800  581          movem.l   D2/D3/D4,-(A7)
+08000374  242E 000C  582          move.l    12(A6),D2
+                     583   ; // check boundry crossing, return the appropriate number of bytes we should write in a page write (page_size)
+                     584   ; unsigned int new_addr;
+                     585   ; int page_size;
+                     586   ; // if we write the intended page size, what's the end address we're gonna be at?
+                     587   ; new_addr = current_addr + intended_page_size - 1;
+08000378  2002       588          move.l    D2,D0
+0800037A  D0AE 0008  589          add.l     8(A6),D0
+0800037E  5380       590          subq.l    #1,D0
+08000380  2800       591          move.l    D0,D4
+                     592   ; if (current_addr <= 0xffff && new_addr > 0xffff) {
+08000382  0C82 0000  593          cmp.l     #65535,D2
+08000386  FFFF      
+08000388  621A       594          bhi.s     boundry_checker_1
+0800038A  0C84 0000  595          cmp.l     #65535,D4
+0800038E  FFFF      
+08000390  6312       596          bls.s     boundry_checker_1
+                     597   ; // cross the middle boundry
+                     598   ; page_size = 0xffff - current_addr + 1;
+08000392  303C FFFF  599          move.w    #65535,D0
+08000396  C0BC 0000  600          and.l     #65535,D0
+0800039A  FFFF      
+0800039C  9082       601          sub.l     D2,D0
+0800039E  5280       602          addq.l    #1,D0
+080003A0  2600       603          move.l    D0,D3
+080003A2  6022       604          bra.s     boundry_checker_4
+                     605   boundry_checker_1:
+                     606   ; } else if (current_addr <= 0x1ffff && new_addr > 0x1ffff) {
+080003A4  0C82 0001  607          cmp.l     #131071,D2
+080003A8  FFFF      
+080003AA  6216       608          bhi.s     boundry_checker_3
+080003AC  0C84 0001  609          cmp.l     #131071,D4
+080003B0  FFFF      
+080003B2  630E       610          bls.s     boundry_checker_3
+                     611   ; // cross the end boundry
+                     612   ; page_size = 0x1ffff - current_addr + 1;
+080003B4  203C 0001  613          move.l    #131071,D0
+080003B8  FFFF      
+080003BA  9082       614          sub.l     D2,D0
+080003BC  5280       615          addq.l    #1,D0
+080003BE  2600       616          move.l    D0,D3
+080003C0  6004       617          bra.s     boundry_checker_4
+                     618   boundry_checker_3:
+                     619   ; } else {
+                     620   ; page_size = intended_page_size;
+080003C2  262E 0008  621          move.l    8(A6),D3
+                     622   boundry_checker_4:
+                     623   ; }
+                     624   ; return page_size;
+080003C6  2003       625          move.l    D3,D0
+080003C8  4CDF 001C  626          movem.l   (A7)+,D2/D3/D4
+080003CC  4E5E       627          unlk      A6
+080003CE  4E75       628          rts
+                     629   ; }
+                     630   ; void I2C_multi_write (void) {
+                     631   _I2C_multi_write:
+080003D0  4E56 FFF8  632          link      A6,#-8
+080003D4  48E7 3F30  633          movem.l   D2/D3/D4/D5/D6/D7/A2/A3,-(A7)
+080003D8  45F9 0800  634          lea       _I2C_TX_command_status.L,A2
+080003DC  0110      
+080003DE  47F9 0800  635          lea       _printf.L,A3
+080003E2  0E42      
+                     636   ; unsigned int size, addr, page_index;
+                     637   ; unsigned char slave_addr_RW;
+                     638   ; unsigned char EEPROM_block_select, EEPROM_internal_addr_H, EEPROM_internal_addr_L;
+                     639   ; char command;
+                     640   ; int page_size;
+                     641   ; int page_limit = 128;
+080003E4  2C3C 0000  642          move.l    #128,D6
+080003E8  0080      
+                     643   ; unsigned char write_data = 0;
+080003EA  422E FFFF  644          clr.b     -1(A6)
+                     645   ; printf("\r\nMultipe bytes EEPROM write");
+080003EE  4879 0800  646          pea       @m68kus~1_11.L
+080003F2  19B0      
+080003F4  4E93       647          jsr       (A3)
+080003F6  584F       648          addq.w    #4,A7
+                     649   ; // ask the range of the writting
+                     650   ; size = ask_EEPROM_addr_range();
+080003F8  4EB9 0800  651          jsr       _ask_EEPROM_addr_range
+080003FC  0314      
+080003FE  2800       652          move.l    D0,D4
+                     653   ; // ask the start address
+                     654   ; addr = ask_EEPROM_internal_addr();
+08000400  4EB9 0800  655          jsr       _ask_EEPROM_internal_addr
+08000404  003E      
+08000406  2400       656          move.l    D0,D2
+                     657   ; printf("\r\nWritting...");
+08000408  4879 0800  658          pea       @m68kus~1_12.L
+0800040C  19CE      
+0800040E  4E93       659          jsr       (A3)
+08000410  584F       660          addq.w    #4,A7
+                     661   ; while (size > 0){
+                     662   I2C_multi_write_1:
+08000412  0C84 0000  663          cmp.l     #0,D4
+08000416  0000      
+08000418  6300 00EA  664          bls       I2C_multi_write_3
+                     665   ; command = write_cmd_I2C;
+0800041C  1D7C 0011  666          move.b    #17,-2(A6)
+08000420  FFFE      
+                     667   ; if (size <= page_limit) {
+08000422  B886       668          cmp.l     D6,D4
+08000424  6210       669          bhi.s     I2C_multi_write_4
+                     670   ; page_size = boundry_checker(size, addr);
+08000426  2F02       671          move.l    D2,-(A7)
+08000428  2F04       672          move.l    D4,-(A7)
+0800042A  4EB9 0800  673          jsr       _boundry_checker
+0800042E  036C      
+08000430  504F       674          addq.w    #8,A7
+08000432  2600       675          move.l    D0,D3
+08000434  6012       676          bra.s     I2C_multi_write_6
+                     677   I2C_multi_write_4:
+                     678   ; } else if (size > page_limit) {
+08000436  B886       679          cmp.l     D6,D4
+08000438  630E       680          bls.s     I2C_multi_write_6
+                     681   ; page_size = boundry_checker(page_limit, addr);
+0800043A  2F02       682          move.l    D2,-(A7)
+0800043C  2F06       683          move.l    D6,-(A7)
+0800043E  4EB9 0800  684          jsr       _boundry_checker
+08000442  036C      
+08000444  504F       685          addq.w    #8,A7
+08000446  2600       686          move.l    D0,D3
+                     687   I2C_multi_write_6:
+                     688   ; }
+                     689   ; EEPROM_internal_addr_H = (addr & 0x00ff00) >> 8;
+08000448  2002       690          move.l    D2,D0
+0800044A  C0BC 0000  691          and.l     #65280,D0
+0800044E  FF00      
+08000450  E088       692          lsr.l     #8,D0
+08000452  1D40 FFFC  693          move.b    D0,-4(A6)
+                     694   ; EEPROM_internal_addr_L = addr & 0x0000ff;
+08000456  2002       695          move.l    D2,D0
+08000458  C0BC 0000  696          and.l     #255,D0
+0800045C  00FF      
+0800045E  1D40 FFFD  697          move.b    D0,-3(A6)
+                     698   ; EEPROM_block_select = (addr & 0x010000) >> 16;
+08000462  2002       699          move.l    D2,D0
+08000464  C0BC 0001  700          and.l     #65536,D0
+08000468  0000      
+0800046A  E088       701          lsr.l     #8,D0
+0800046C  E088       702          lsr.l     #8,D0
+0800046E  1D40 FFFB  703          move.b    D0,-5(A6)
+                     704   ; // EEPROM tag (b'1010) + chip select ('b00) + block select + write (0)
+                     705   ; slave_addr_RW = (0xa0 | (EEPROM_block_select << 1));
+08000472  303C 00A0  706          move.w    #160,D0
+08000476  122E FFFB  707          move.b    -5(A6),D1
+0800047A  E309       708          lsl.b     #1,D1
+0800047C  C27C 00FF  709          and.w     #255,D1
+08000480  8041       710          or.w      D1,D0
+08000482  1E00       711          move.b    D0,D7
+                     712   ; // send the control byte and generate a start signal
+                     713   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+08000484  4878 0091  714          pea       145
+08000488  4887       715          ext.w     D7
+0800048A  48C7       716          ext.l     D7
+0800048C  2F07       717          move.l    D7,-(A7)
+0800048E  4E92       718          jsr       (A2)
+08000490  504F       719          addq.w    #8,A7
+                     720   ; // write EEPROM internal addr (upper and lower byte), no start signal
+                     721   ; I2C_TX_command_status(EEPROM_internal_addr_H, write_cmd_I2C);
+08000492  4878 0011  722          pea       17
+08000496  122E FFFC  723          move.b    -4(A6),D1
+0800049A  4881       724          ext.w     D1
+0800049C  48C1       725          ext.l     D1
+0800049E  2F01       726          move.l    D1,-(A7)
+080004A0  4E92       727          jsr       (A2)
+080004A2  504F       728          addq.w    #8,A7
+                     729   ; I2C_TX_command_status(EEPROM_internal_addr_L, write_cmd_I2C);
+080004A4  4878 0011  730          pea       17
+080004A8  122E FFFD  731          move.b    -3(A6),D1
+080004AC  4881       732          ext.w     D1
+080004AE  48C1       733          ext.l     D1
+080004B0  2F01       734          move.l    D1,-(A7)
+080004B2  4E92       735          jsr       (A2)
+080004B4  504F       736          addq.w    #8,A7
+                     737   ; for (page_index = 0; page_index < page_size; page_index++) {
+080004B6  4285       738          clr.l     D5
+                     739   I2C_multi_write_8:
+080004B8  BA83       740          cmp.l     D3,D5
+080004BA  6400 0030  741          bhs       I2C_multi_write_10
+                     742   ; // write the actual data (128 bytes), generate a stop signal at the 128th byte
+                     743   ; if (page_index == page_size - 1) {
+080004BE  2003       744          move.l    D3,D0
+080004C0  5380       745          subq.l    #1,D0
+080004C2  BA80       746          cmp.l     D0,D5
+080004C4  6606       747          bne.s     I2C_multi_write_11
+                     748   ; command = stop_write_cmd_I2C;
+080004C6  1D7C 0051  749          move.b    #81,-2(A6)
+080004CA  FFFE      
+                     750   I2C_multi_write_11:
+                     751   ; }
+                     752   ; I2C_TX_command_status(write_data, command);
+080004CC  122E FFFE  753          move.b    -2(A6),D1
+080004D0  4881       754          ext.w     D1
+080004D2  48C1       755          ext.l     D1
+080004D4  2F01       756          move.l    D1,-(A7)
+080004D6  122E FFFF  757          move.b    -1(A6),D1
+080004DA  4881       758          ext.w     D1
+080004DC  48C1       759          ext.l     D1
+080004DE  2F01       760          move.l    D1,-(A7)
+080004E0  4E92       761          jsr       (A2)
+080004E2  504F       762          addq.w    #8,A7
+                     763   ; write_data ++;
+080004E4  522E FFFF  764          addq.b    #1,-1(A6)
+080004E8  5285       765          addq.l    #1,D5
+080004EA  60CC       766          bra       I2C_multi_write_8
+                     767   I2C_multi_write_10:
+                     768   ; }
+                     769   ; EEPROM_internal_writting_polling(slave_addr_RW);
+080004EC  CEBC 0000  770          and.l     #255,D7
+080004F0  00FF      
+080004F2  2F07       771          move.l    D7,-(A7)
+080004F4  4EB9 0800  772          jsr       _EEPROM_internal_writting_pollin
+080004F8  00AE      
+080004FA  584F       773          addq.w    #4,A7
+                     774   ; addr = addr + page_size;
+080004FC  D483       775          add.l     D3,D2
+                     776   ; size = size - page_size;
+080004FE  9883       777          sub.l     D3,D4
+08000500  6000 FF10  778          bra       I2C_multi_write_1
+                     779   I2C_multi_write_3:
+                     780   ; // refresh the writting command to exclude stop signal
+                     781   ; }
+                     782   ; printf("\r\nMultiple bytes writting done");
+08000504  4879 0800  783          pea       @m68kus~1_13.L
+08000508  19DC      
+0800050A  4E93       784          jsr       (A3)
+0800050C  584F       785          addq.w    #4,A7
+0800050E  4CDF 0CFC  786          movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2/A3
+08000512  4E5E       787          unlk      A6
+08000514  4E75       788          rts
+                     789   ; }
+                     790   ; void I2C_multi_read (void) {
+                     791   _I2C_multi_read:
+08000516  4E56 FFF8  792          link      A6,#-8
+0800051A  48E7 3F30  793          movem.l   D2/D3/D4/D5/D6/D7/A2/A3,-(A7)
+0800051E  45F9 0800  794          lea       _I2C_TX_command_status.L,A2
+08000522  0110      
+                     795   ; unsigned int size, addr, page_index;
+                     796   ; unsigned char slave_addr_RW;
+                     797   ; unsigned char EEPROM_block_select, EEPROM_internal_addr_H, EEPROM_internal_addr_L;
+                     798   ; char command;
+                     799   ; int page_size;
+                     800   ; unsigned char read_data;
+                     801   ; unsigned int counter = 0;
+08000524  7E00       802          moveq     #0,D7
+                     803   ; unsigned printing_step_size = 1;
+08000526  367C 0001  804          move.w    #1,A3
+                     805   ; printf("\r\nMultiple bytes EEPROM read");
+0800052A  4879 0800  806          pea       @m68kus~1_14.L
+0800052E  19FC      
+08000530  4EB9 0800  807          jsr       _printf
+08000534  0E42      
+08000536  584F       808          addq.w    #4,A7
+                     809   ; // ask the range of the writting
+                     810   ; size = ask_EEPROM_addr_range();
+08000538  4EB9 0800  811          jsr       _ask_EEPROM_addr_range
+0800053C  0314      
+0800053E  2600       812          move.l    D0,D3
+                     813   ; // ask the start address
+                     814   ; addr = ask_EEPROM_internal_addr();
+08000540  4EB9 0800  815          jsr       _ask_EEPROM_internal_addr
+08000544  003E      
+08000546  2400       816          move.l    D0,D2
+                     817   ; // if we have more than 10 items to read, we only print out 10 lines.
+                     818   ; if (size > 10){
+08000548  0C83 0000  819          cmp.l     #10,D3
+0800054C  000A      
+0800054E  6312       820          bls.s     I2C_multi_read_1
+                     821   ; printing_step_size = size/10;
+08000550  2F03       822          move.l    D3,-(A7)
+08000552  4878 000A  823          pea       10
+08000556  4EB9 0800  824          jsr       ULDIV
+0800055A  0D64      
+0800055C  2017       825          move.l    (A7),D0
+0800055E  504F       826          addq.w    #8,A7
+08000560  2640       827          move.l    D0,A3
+                     828   I2C_multi_read_1:
+                     829   ; }
+                     830   ; while (size > 0){
+                     831   I2C_multi_read_3:
+08000562  0C83 0000  832          cmp.l     #0,D3
+08000566  0000      
+08000568  6300 0124  833          bls       I2C_multi_read_5
+                     834   ; command = read_ACK_cmd_I2C;
+0800056C  1D7C 0021  835          move.b    #33,-2(A6)
+08000570  FFFE      
+                     836   ; page_size = boundry_checker(size, addr);
+08000572  2F02       837          move.l    D2,-(A7)
+08000574  2F03       838          move.l    D3,-(A7)
+08000576  4EB9 0800  839          jsr       _boundry_checker
+0800057A  036C      
+0800057C  504F       840          addq.w    #8,A7
+0800057E  2800       841          move.l    D0,D4
+                     842   ; EEPROM_internal_addr_H = (addr & 0x00ff00) >> 8;
+08000580  2002       843          move.l    D2,D0
+08000582  C0BC 0000  844          and.l     #65280,D0
+08000586  FF00      
+08000588  E088       845          lsr.l     #8,D0
+0800058A  1D40 FFFC  846          move.b    D0,-4(A6)
+                     847   ; EEPROM_internal_addr_L = addr & 0x0000ff;
+0800058E  2002       848          move.l    D2,D0
+08000590  C0BC 0000  849          and.l     #255,D0
+08000594  00FF      
+08000596  1D40 FFFD  850          move.b    D0,-3(A6)
+                     851   ; EEPROM_block_select = (addr & 0x010000) >> 16;
+0800059A  2002       852          move.l    D2,D0
+0800059C  C0BC 0001  853          and.l     #65536,D0
+080005A0  0000      
+080005A2  E088       854          lsr.l     #8,D0
+080005A4  E088       855          lsr.l     #8,D0
+080005A6  1D40 FFFB  856          move.b    D0,-5(A6)
+                     857   ; // EEPROM tag (b'1010) + chip select ('b00) + block select + write (0)
+                     858   ; slave_addr_RW = (0xa0 | (EEPROM_block_select << 1));
+080005AA  303C 00A0  859          move.w    #160,D0
+080005AE  122E FFFB  860          move.b    -5(A6),D1
+080005B2  E309       861          lsl.b     #1,D1
+080005B4  C27C 00FF  862          and.w     #255,D1
+080005B8  8041       863          or.w      D1,D0
+080005BA  1C00       864          move.b    D0,D6
+                     865   ; // send the control byte and generate a start signal
+                     866   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+080005BC  4878 0091  867          pea       145
+080005C0  4886       868          ext.w     D6
+080005C2  48C6       869          ext.l     D6
+080005C4  2F06       870          move.l    D6,-(A7)
+080005C6  4E92       871          jsr       (A2)
+080005C8  504F       872          addq.w    #8,A7
+                     873   ; // write EEPROM internal addr (upper and lower byte), no start signal
+                     874   ; I2C_TX_command_status(EEPROM_internal_addr_H, write_cmd_I2C);
+080005CA  4878 0011  875          pea       17
+080005CE  122E FFFC  876          move.b    -4(A6),D1
+080005D2  4881       877          ext.w     D1
+080005D4  48C1       878          ext.l     D1
+080005D6  2F01       879          move.l    D1,-(A7)
+080005D8  4E92       880          jsr       (A2)
+080005DA  504F       881          addq.w    #8,A7
+                     882   ; I2C_TX_command_status(EEPROM_internal_addr_L, write_cmd_I2C);
+080005DC  4878 0011  883          pea       17
+080005E0  122E FFFD  884          move.b    -3(A6),D1
+080005E4  4881       885          ext.w     D1
+080005E6  48C1       886          ext.l     D1
+080005E8  2F01       887          move.l    D1,-(A7)
+080005EA  4E92       888          jsr       (A2)
+080005EC  504F       889          addq.w    #8,A7
+                     890   ; // EEPROM tag (b'1010) + chip select ('b00) + block select + read (1)
+                     891   ; slave_addr_RW = (0xa1 | (EEPROM_block_select << 1));
+080005EE  303C 00A1  892          move.w    #161,D0
+080005F2  122E FFFB  893          move.b    -5(A6),D1
+080005F6  E309       894          lsl.b     #1,D1
+080005F8  C27C 00FF  895          and.w     #255,D1
+080005FC  8041       896          or.w      D1,D0
+080005FE  1C00       897          move.b    D0,D6
+                     898   ; // send the control byte and generate a repeated start signal
+                     899   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+08000600  4878 0091  900          pea       145
+08000604  4886       901          ext.w     D6
+08000606  48C6       902          ext.l     D6
+08000608  2F06       903          move.l    D6,-(A7)
+0800060A  4E92       904          jsr       (A2)
+0800060C  504F       905          addq.w    #8,A7
+                     906   ; for (page_index = 0; page_index < page_size; page_index++) {
+0800060E  4285       907          clr.l     D5
+                     908   I2C_multi_read_6:
+08000610  BA84       909          cmp.l     D4,D5
+08000612  6400 0072  910          bhs       I2C_multi_read_8
+                     911   ; if (page_index == page_size - 1) {
+08000616  2004       912          move.l    D4,D0
+08000618  5380       913          subq.l    #1,D0
+0800061A  BA80       914          cmp.l     D0,D5
+0800061C  6606       915          bne.s     I2C_multi_read_9
+                     916   ; command = stop_read_NACK_cmd_I2C;
+0800061E  1D7C 0069  917          move.b    #105,-2(A6)
+08000622  FFFE      
+                     918   I2C_multi_read_9:
+                     919   ; }
+                     920   ; I2C_command_reg = command;
+08000624  13EE FFFE  921          move.b    -2(A6),4227080
+08000628  0040 8008 
+                     922   ; // polling the IF flag in the status reg
+                     923   ; while ((I2C_status_reg & 0x01) != 1){}
+                     924   I2C_multi_read_11:
+0800062C  1039 0040  925          move.b    4227080,D0
+08000630  8008      
+08000632  C03C 0001  926          and.b     #1,D0
+08000636  0C00 0001  927          cmp.b     #1,D0
+0800063A  6702       928          beq.s     I2C_multi_read_13
+0800063C  60EE       929          bra       I2C_multi_read_11
+                     930   I2C_multi_read_13:
+                     931   ; if (counter % printing_step_size == 0){
+0800063E  2F07       932          move.l    D7,-(A7)
+08000640  2F0B       933          move.l    A3,-(A7)
+08000642  4EB9 0800  934          jsr       ULDIV
+08000646  0D64      
+08000648  202F 0004  935          move.l    4(A7),D0
+0800064C  504F       936          addq.w    #8,A7
+0800064E  4A80       937          tst.l     D0
+08000650  662E       938          bne.s     I2C_multi_read_14
+                     939   ; read_data = I2C_RX_reg;
+08000652  1D79 0040  940          move.b    4227078,-1(A6)
+08000656  8006 FFFF 
+                     941   ; printf("\r\nAddress: %x, Read data: %x",counter & 0x01ffff, read_data);
+0800065A  122E FFFF  942          move.b    -1(A6),D1
+0800065E  C2BC 0000  943          and.l     #255,D1
+08000662  00FF      
+08000664  2F01       944          move.l    D1,-(A7)
+08000666  2207       945          move.l    D7,D1
+08000668  C2BC 0001  946          and.l     #131071,D1
+0800066C  FFFF      
+0800066E  2F01       947          move.l    D1,-(A7)
+08000670  4879 0800  948          pea       @m68kus~1_15.L
+08000674  1A1A      
+08000676  4EB9 0800  949          jsr       _printf
+0800067A  0E42      
+0800067C  DEFC 000C  950          add.w     #12,A7
+                     951   I2C_multi_read_14:
+                     952   ; }
+                     953   ; counter ++;
+08000680  5287       954          addq.l    #1,D7
+08000682  5285       955          addq.l    #1,D5
+08000684  608A       956          bra       I2C_multi_read_6
+                     957   I2C_multi_read_8:
+                     958   ; }
+                     959   ; addr = addr + page_size;
+08000686  D484       960          add.l     D4,D2
+                     961   ; size = size - page_size;        
+08000688  9684       962          sub.l     D4,D3
+0800068A  6000 FED6  963          bra       I2C_multi_read_3
+                     964   I2C_multi_read_5:
+0800068E  4CDF 0CFC  965          movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2/A3
+08000692  4E5E       966          unlk      A6
+08000694  4E75       967          rts
+                     968   ; }
+                     969   ; }
+                     970   ; void DAC(void) {
+                     971   _DAC:
+08000696  4E56 FFFC  972          link      A6,#-4
+0800069A  48E7 2020  973          movem.l   D2/A2,-(A7)
+0800069E  45F9 0800  974          lea       _I2C_TX_command_status.L,A2
+080006A2  0110      
+                     975   ; unsigned char slave_addr_RW;
+                     976   ; unsigned char control_byte;
+                     977   ; unsigned char command = write_cmd_I2C;
+080006A4  7411       978          moveq     #17,D2
+                     979   ; printf("\r\nUsing DAC to control LED");
+080006A6  4879 0800  980          pea       @m68kus~1_16.L
+080006AA  1A38      
+080006AC  4EB9 0800  981          jsr       _printf
+080006B0  0E42      
+080006B2  584F       982          addq.w    #4,A7
+                     983   ; // PCF8591 tag (b'1001) + chip select (b'000) + write (0)
+                     984   ; slave_addr_RW = 0x90;
+080006B4  1D7C 0090  985          move.b    #144,-2(A6)
+080006B8  FFFE      
+                     986   ; // only enable the analog bit
+                     987   ; control_byte = 0x40;
+080006BA  1D7C 0040  988          move.b    #64,-1(A6)
+080006BE  FFFF      
+                     989   ; // send the slave address byte and generate a start signal
+                     990   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+080006C0  4878 0091  991          pea       145
+080006C4  122E FFFE  992          move.b    -2(A6),D1
+080006C8  4881       993          ext.w     D1
+080006CA  48C1       994          ext.l     D1
+080006CC  2F01       995          move.l    D1,-(A7)
+080006CE  4E92       996          jsr       (A2)
+080006D0  504F       997          addq.w    #8,A7
+                     998   ; //printf("\r\nslave address sent");
+                     999   ; // send the control byte to PCF8591
+                    1000   ; I2C_TX_command_status(control_byte, write_cmd_I2C);
+080006D2  4878 0011 1001          pea       17
+080006D6  122E FFFF 1002          move.b    -1(A6),D1
+080006DA  4881      1003          ext.w     D1
+080006DC  48C1      1004          ext.l     D1
+080006DE  2F01      1005          move.l    D1,-(A7)
+080006E0  4E92      1006          jsr       (A2)
+080006E2  504F      1007          addq.w    #8,A7
+                    1008   ; //printf("\r\ncontrol byte sent");
+                    1009   ; /*
+                    1010   ; for (i = 0; i <2560; i++) {
+                    1011   ; // keep writting digital signal
+                    1012   ; if (i == 2559) {
+                    1013   ; // generate a stop signal at the last byte
+                    1014   ; command = stop_write_cmd_I2C;
+                    1015   ; }
+                    1016   ; I2C_TX_command_status(digital_write_data, command);
+                    1017   ; digital_write_data ++;
+                    1018   ; }
+                    1019   ; */
+                    1020   ; while (1){
+                    1021   DAC_1:
+                    1022   ; I2C_TX_command_status(0xff,command);
+080006E4  4882      1023          ext.w     D2
+080006E6  48C2      1024          ext.l     D2
+080006E8  2F02      1025          move.l    D2,-(A7)
+080006EA  4878 00FF 1026          pea       255
+080006EE  4E92      1027          jsr       (A2)
+080006F0  504F      1028          addq.w    #8,A7
+                    1029   ; Wait500ms ();
+080006F2  4EB9 0800 1030          jsr       _Wait500ms
+080006F6  08E0      
+                    1031   ; I2C_TX_command_status(0x00,command);
+080006F8  4882      1032          ext.w     D2
+080006FA  48C2      1033          ext.l     D2
+080006FC  2F02      1034          move.l    D2,-(A7)
+080006FE  42A7      1035          clr.l     -(A7)
+08000700  4E92      1036          jsr       (A2)
+08000702  504F      1037          addq.w    #8,A7
+                    1038   ; Wait500ms ();
+08000704  4EB9 0800 1039          jsr       _Wait500ms
+08000708  08E0      
+0800070A  60D8      1040          bra       DAC_1
+                    1041   ; }
+                    1042   ; }
+                    1043   ; void ADC(void) {
+                    1044   _ADC:
+0800070C  4E56 FFFC 1045          link      A6,#-4
+08000710  48E7 2020 1046          movem.l   D2/A2,-(A7)
+08000714  45F9 0800 1047          lea       _I2C_TX_command_status.L,A2
+08000718  0110      
+                    1048   ; unsigned char slave_addr_RW;
+                    1049   ; unsigned char control_byte;
+                    1050   ; unsigned char command = read_ACK_cmd_I2C;
+0800071A  1D7C 0021 1051          move.b    #33,-2(A6)
+0800071E  FFFE      
+                    1052   ; unsigned char read_data;
+                    1053   ; printf("\r\nReading values from the ADC");
+08000720  4879 0800 1054          pea       @m68kus~1_17.L
+08000724  1A54      
+08000726  4EB9 0800 1055          jsr       _printf
+0800072A  0E42      
+0800072C  584F      1056          addq.w    #4,A7
+                    1057   ; // PCF8591 tag (b'1001) + chip select (b'000) + write (0)
+                    1058   ; slave_addr_RW = 0x90;
+0800072E  143C 0090 1059          move.b    #144,D2
+                    1060   ; // generate the control byte based on the channel user selected
+                    1061   ; control_byte = ask_ADC_channel();
+08000732  4EB9 0800 1062          jsr       _ask_ADC_channel
+08000736  07AC      
+08000738  1D40 FFFD 1063          move.b    D0,-3(A6)
+                    1064   ; // send the slave address byte and generate a start signal
+                    1065   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+0800073C  4878 0091 1066          pea       145
+08000740  4882      1067          ext.w     D2
+08000742  48C2      1068          ext.l     D2
+08000744  2F02      1069          move.l    D2,-(A7)
+08000746  4E92      1070          jsr       (A2)
+08000748  504F      1071          addq.w    #8,A7
+                    1072   ; // send the control byte to PCF8591
+                    1073   ; I2C_TX_command_status(control_byte, write_cmd_I2C);
+0800074A  4878 0011 1074          pea       17
+0800074E  122E FFFD 1075          move.b    -3(A6),D1
+08000752  4881      1076          ext.w     D1
+08000754  48C1      1077          ext.l     D1
+08000756  2F01      1078          move.l    D1,-(A7)
+08000758  4E92      1079          jsr       (A2)
+0800075A  504F      1080          addq.w    #8,A7
+                    1081   ; // PCF8591 tag (b'1001) + chip select (b'000) + read (1)
+                    1082   ; slave_addr_RW = 0x91;
+0800075C  143C 0091 1083          move.b    #145,D2
+                    1084   ; // repeated start
+                    1085   ; I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+08000760  4878 0091 1086          pea       145
+08000764  4882      1087          ext.w     D2
+08000766  48C2      1088          ext.l     D2
+08000768  2F02      1089          move.l    D2,-(A7)
+0800076A  4E92      1090          jsr       (A2)
+0800076C  504F      1091          addq.w    #8,A7
+                    1092   ; // send the slave address byte and generate a repeated start signal
+                    1093   ; //I2C_TX_command_status(slave_addr_RW, start_write_cmd_I2C);
+                    1094   ; while (1) {
+                    1095   ADC_1:
+                    1096   ; I2C_command_reg = command;
+0800076E  13EE FFFE 1097          move.b    -2(A6),4227080
+08000772  0040 8008 
+                    1098   ; // polling the IF flag in the status reg
+                    1099   ; while ((I2C_status_reg & 0x01) != 1){}
+                    1100   ADC_4:
+08000776  1039 0040 1101          move.b    4227080,D0
+0800077A  8008      
+0800077C  C03C 0001 1102          and.b     #1,D0
+08000780  0C00 0001 1103          cmp.b     #1,D0
+08000784  6702      1104          beq.s     ADC_6
+08000786  60EE      1105          bra       ADC_4
+                    1106   ADC_6:
+                    1107   ; read_data = I2C_RX_reg;
+08000788  1D79 0040 1108          move.b    4227078,-1(A6)
+0800078C  8006 FFFF 
+                    1109   ; printf("\r\nRead data: %x", read_data);
+08000790  122E FFFF 1110          move.b    -1(A6),D1
+08000794  C2BC 0000 1111          and.l     #255,D1
+08000798  00FF      
+0800079A  2F01      1112          move.l    D1,-(A7)
+0800079C  4879 0800 1113          pea       @m68kus~1_18.L
+080007A0  1A72      
+080007A2  4EB9 0800 1114          jsr       _printf
+080007A6  0E42      
+080007A8  504F      1115          addq.w    #8,A7
+080007AA  60C2      1116          bra       ADC_1
+                    1117   ; }
+                    1118   ; }
+                    1119   ; unsigned char ask_ADC_channel (void){
+                    1120   _ask_ADC_channel:
+080007AC  48E7 3800 1121          movem.l   D2/D3/D4,-(A7)
+                    1122   ; unsigned char channel;
+                    1123   ; unsigned char control_byte;
+                    1124   ; int valid = 0;
+080007B0  4282      1125          clr.l     D2
+                    1126   ; while (!valid){
+                    1127   ask_ADC_channel_1:
+080007B2  4A82      1128          tst.l     D2
+080007B4  6600 0052 1129          bne       ask_ADC_channel_3
+                    1130   ; printf("\r\nWhich channel you want to read? 1. Potentiometer 2.Photoresistor 3.Thermistor ");
+080007B8  4879 0800 1131          pea       @m68kus~1_19.L
+080007BC  1A82      
+080007BE  4EB9 0800 1132          jsr       _printf
+080007C2  0E42      
+080007C4  584F      1133          addq.w    #4,A7
+                    1134   ; channel = Get1HexDigits(0);
+080007C6  42A7      1135          clr.l     -(A7)
+080007C8  4EB9 0800 1136          jsr       _Get1HexDigits
+080007CC  09C2      
+080007CE  584F      1137          addq.w    #4,A7
+080007D0  1800      1138          move.b    D0,D4
+                    1139   ; if (channel == 1) {
+080007D2  0C04 0001 1140          cmp.b     #1,D4
+080007D6  6606      1141          bne.s     ask_ADC_channel_4
+                    1142   ; control_byte = 0x01;
+080007D8  7601      1143          moveq     #1,D3
+                    1144   ; valid = 1;
+080007DA  7401      1145          moveq     #1,D2
+080007DC  6028      1146          bra.s     ask_ADC_channel_9
+                    1147   ask_ADC_channel_4:
+                    1148   ; } else if (channel == 2) {
+080007DE  0C04 0002 1149          cmp.b     #2,D4
+080007E2  6606      1150          bne.s     ask_ADC_channel_6
+                    1151   ; control_byte = 0x02;
+080007E4  7602      1152          moveq     #2,D3
+                    1153   ; valid = 1;
+080007E6  7401      1154          moveq     #1,D2
+080007E8  601C      1155          bra.s     ask_ADC_channel_9
+                    1156   ask_ADC_channel_6:
+                    1157   ; } else if (channel == 3) {
+080007EA  0C04 0003 1158          cmp.b     #3,D4
+080007EE  6606      1159          bne.s     ask_ADC_channel_8
+                    1160   ; control_byte = 0x03;
+080007F0  7603      1161          moveq     #3,D3
+                    1162   ; valid = 1;
+080007F2  7401      1163          moveq     #1,D2
+080007F4  6010      1164          bra.s     ask_ADC_channel_9
+                    1165   ask_ADC_channel_8:
+                    1166   ; } else {
+                    1167   ; printf("\r\nInvalid selection!");
+080007F6  4879 0800 1168          pea       @m68kus~1_20.L
+080007FA  1AD4      
+080007FC  4EB9 0800 1169          jsr       _printf
+08000800  0E42      
+08000802  584F      1170          addq.w    #4,A7
+                    1171   ; valid = 0;
+08000804  4282      1172          clr.l     D2
+                    1173   ask_ADC_channel_9:
+08000806  60AA      1174          bra       ask_ADC_channel_1
+                    1175   ask_ADC_channel_3:
+                    1176   ; }
+                    1177   ; }
+                    1178   ; return control_byte;
+08000808  1003      1179          move.b    D3,D0
+0800080A  4CDF 001C 1180          movem.l   (A7)+,D2/D3/D4
+0800080E  4E75      1181          rts
+                    1182   ; }
+                    1183   ; /*****************************************************************************************
+                    1184   ; **	Interrupt service routine for Timers
+                    1185   ; **
+                    1186   ; **  Timers 1 - 4 share a common IRQ on the CPU  so this function uses polling to figure
+                    1187   ; **  out which timer is producing the interrupt
+                    1188   ; **
+                    1189   ; *****************************************************************************************/
+                    1190   ; void Timer_ISR()
+                    1191   ; {
+                    1192   _Timer_ISR:
+                    1193   ; if(Timer1Status == 1) {         // Did Timer 1 produce the Interrupt?
+08000810  1039 0040 1194          move.b    4194354,D0
+08000814  0032      
+08000816  0C00 0001 1195          cmp.b     #1,D0
+0800081A  661A      1196          bne.s     Timer_ISR_1
+                    1197   ; Timer1Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+0800081C  13FC 0003 1198          move.b    #3,4194354
+08000820  0040 0032 
+                    1199   ; PortA = Timer1Count++ ;     // increment an LED count on PortA with each tick of Timer 1
+08000824  1039 0800 1200          move.b    _Timer1Count.L,D0
+08000828  1CC8      
+0800082A  5239 0800 1201          addq.b    #1,_Timer1Count.L
+0800082E  1CC8      
+08000830  13C0 0040 1202          move.b    D0,4194304
+08000834  0000      
+                    1203   Timer_ISR_1:
+                    1204   ; }
+                    1205   ; if(Timer2Status == 1) {         // Did Timer 2 produce the Interrupt?
+08000836  1039 0040 1206          move.b    4194358,D0
+0800083A  0036      
+0800083C  0C00 0001 1207          cmp.b     #1,D0
+08000840  661A      1208          bne.s     Timer_ISR_3
+                    1209   ; Timer2Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+08000842  13FC 0003 1210          move.b    #3,4194358
+08000846  0040 0036 
+                    1211   ; PortC = Timer2Count++ ;     // increment an LED count on PortC with each tick of Timer 2
+0800084A  1039 0800 1212          move.b    _Timer2Count.L,D0
+0800084E  1CCA      
+08000850  5239 0800 1213          addq.b    #1,_Timer2Count.L
+08000854  1CCA      
+08000856  13C0 0040 1214          move.b    D0,4194308
+0800085A  0004      
+                    1215   Timer_ISR_3:
+                    1216   ; }
+                    1217   ; if(Timer3Status == 1) {         // Did Timer 3 produce the Interrupt?
+0800085C  1039 0040 1218          move.b    4194362,D0
+08000860  003A      
+08000862  0C00 0001 1219          cmp.b     #1,D0
+08000866  661A      1220          bne.s     Timer_ISR_5
+                    1221   ; Timer3Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+08000868  13FC 0003 1222          move.b    #3,4194362
+0800086C  0040 003A 
+                    1223   ; HEX_A = Timer3Count++ ;     // increment a HEX count on Port HEX_A with each tick of Timer 3
+08000870  1039 0800 1224          move.b    _Timer3Count.L,D0
+08000874  1CCC      
+08000876  5239 0800 1225          addq.b    #1,_Timer3Count.L
+0800087A  1CCC      
+0800087C  13C0 0040 1226          move.b    D0,4194320
+08000880  0010      
+                    1227   Timer_ISR_5:
+                    1228   ; }
+                    1229   ; if(Timer4Status == 1) {         // Did Timer 4 produce the Interrupt?
+08000882  1039 0040 1230          move.b    4194366,D0
+08000886  003E      
+08000888  0C00 0001 1231          cmp.b     #1,D0
+0800088C  661A      1232          bne.s     Timer_ISR_7
+                    1233   ; Timer4Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+0800088E  13FC 0003 1234          move.b    #3,4194366
+08000892  0040 003E 
+                    1235   ; HEX_B = Timer4Count++ ;     // increment a HEX count on HEX_B with each tick of Timer 4
+08000896  1039 0800 1236          move.b    _Timer4Count.L,D0
+0800089A  1CCE      
+0800089C  5239 0800 1237          addq.b    #1,_Timer4Count.L
+080008A0  1CCE      
+080008A2  13C0 0040 1238          move.b    D0,4194322
+080008A6  0012      
+                    1239   Timer_ISR_7:
+080008A8  4E75      1240          rts
+                    1241   ; }
+                    1242   ; }
+                    1243   ; /*****************************************************************************************
+                    1244   ; **	Interrupt service routine for ACIA. This device has it's own dedicate IRQ level
+                    1245   ; **  Add your code here to poll Status register and clear interrupt
+                    1246   ; *****************************************************************************************/
+                    1247   ; void ACIA_ISR()
+                    1248   ; {}
+                    1249   _ACIA_ISR:
+080008AA  4E75      1250          rts
+                    1251   ; /***************************************************************************************
+                    1252   ; **	Interrupt service routine for PIAs 1 and 2. These devices share an IRQ level
+                    1253   ; **  Add your code here to poll Status register and clear interrupt
+                    1254   ; *****************************************************************************************/
+                    1255   ; void PIA_ISR()
+                    1256   ; {}
+                    1257   _PIA_ISR:
+080008AC  4E75      1258          rts
+                    1259   ; /***********************************************************************************
+                    1260   ; **	Interrupt service routine for Key 2 on DE1 board. Add your own response here
+                    1261   ; ************************************************************************************/
+                    1262   ; void Key2PressISR()
+                    1263   ; {}
+                    1264   _Key2PressISR:
+080008AE  4E75      1265          rts
+                    1266   ; /***********************************************************************************
+                    1267   ; **	Interrupt service routine for Key 1 on DE1 board. Add your own response here
+                    1268   ; ************************************************************************************/
+                    1269   ; void Key1PressISR()
+                    1270   ; {}
+                    1271   _Key1PressISR:
+080008B0  4E75      1272          rts
+                    1273   ; /************************************************************************************
+                    1274   ; **   Delay Subroutine to give the 68000 something useless to do to waste 1 mSec
+                    1275   ; ************************************************************************************/
+                    1276   ; void Wait1ms(void)
+                    1277   ; {
+                    1278   _Wait1ms:
+080008B2  2F02      1279          move.l    D2,-(A7)
+                    1280   ; int  i ;
+                    1281   ; for(i = 0; i < 1000; i ++)
+080008B4  4282      1282          clr.l     D2
+                    1283   Wait1ms_1:
+080008B6  0C82 0000 1284          cmp.l     #1000,D2
+080008BA  03E8      
+080008BC  6C04      1285          bge.s     Wait1ms_3
+080008BE  5282      1286          addq.l    #1,D2
+080008C0  60F4      1287          bra       Wait1ms_1
+                    1288   Wait1ms_3:
+080008C2  241F      1289          move.l    (A7)+,D2
+080008C4  4E75      1290          rts
+                    1291   ; ;
+                    1292   ; }
+                    1293   ; /************************************************************************************
+                    1294   ; **  Subroutine to give the 68000 something useless to do to waste 3 mSec
+                    1295   ; **************************************************************************************/
+                    1296   ; void Wait3ms(void)
+                    1297   ; {
+                    1298   _Wait3ms:
+080008C6  2F02      1299          move.l    D2,-(A7)
+                    1300   ; int i ;
+                    1301   ; for(i = 0; i < 3; i++)
+080008C8  4282      1302          clr.l     D2
+                    1303   Wait3ms_1:
+080008CA  0C82 0000 1304          cmp.l     #3,D2
+080008CE  0003      
+080008D0  6C0A      1305          bge.s     Wait3ms_3
+                    1306   ; Wait1ms() ;
+080008D2  4EB9 0800 1307          jsr       _Wait1ms
+080008D6  08B2      
+080008D8  5282      1308          addq.l    #1,D2
+080008DA  60EE      1309          bra       Wait3ms_1
+                    1310   Wait3ms_3:
+080008DC  241F      1311          move.l    (A7)+,D2
+080008DE  4E75      1312          rts
+                    1313   ; }
+                    1314   ; void Wait500ms (void) {
+                    1315   _Wait500ms:
+080008E0  2F02      1316          move.l    D2,-(A7)
+                    1317   ; int i;
+                    1318   ; for (i = 0; i<500; i++){
+080008E2  4282      1319          clr.l     D2
+                    1320   Wait500ms_1:
+080008E4  0C82 0000 1321          cmp.l     #500,D2
+080008E8  01F4      
+080008EA  6C0A      1322          bge.s     Wait500ms_3
+                    1323   ; Wait1ms();
+080008EC  4EB9 0800 1324          jsr       _Wait1ms
+080008F0  08B2      
+080008F2  5282      1325          addq.l    #1,D2
+080008F4  60EE      1326          bra       Wait500ms_1
+                    1327   Wait500ms_3:
+080008F6  241F      1328          move.l    (A7)+,D2
+080008F8  4E75      1329          rts
+                    1330   ; }
+                    1331   ; }
+                    1332   ; /*********************************************************************************************
+                    1333   ; **  Subroutine to initialise the LCD display by writing some commands to the LCD internal registers
+                    1334   ; **  Sets it for parallel port and 2 line display mode (if I recall correctly)
+                    1335   ; *********************************************************************************************/
+                    1336   ; void Init_LCD(void)
+                    1337   ; {
+                    1338   _Init_LCD:
+                    1339   ; LCDcommand = 0x0c ;
+080008FA  13FC 000C 1340          move.b    #12,4194336
+080008FE  0040 0020 
+                    1341   ; Wait3ms() ;
+08000902  4EB9 0800 1342          jsr       _Wait3ms
+08000906  08C6      
+                    1343   ; LCDcommand = 0x38 ;
+08000908  13FC 0038 1344          move.b    #56,4194336
+0800090C  0040 0020 
+                    1345   ; Wait3ms() ;
+08000910  4EB9 0800 1346          jsr       _Wait3ms
+08000914  08C6      
+08000916  4E75      1347          rts
+                    1348   ; }
+                    1349   ; /*********************************************************************************************
+                    1350   ; **  Subroutine to initialise the RS232 Port by writing some commands to the internal registers
+                    1351   ; *********************************************************************************************/
+                    1352   ; void Init_RS232(void)
+                    1353   ; {
+                    1354   _Init_RS232:
+                    1355   ; RS232_Control = 0x15 ; //  %00010101 set up 6850 uses divide by 16 clock, set RTS low, 8 bits no parity, 1 stop bit, transmitter interrupt disabled
+08000918  13FC 0015 1356          move.b    #21,4194368
+0800091C  0040 0040 
+                    1357   ; RS232_Baud = 0x1 ;      // program baud rate generator 001 = 115k, 010 = 57.6k, 011 = 38.4k, 100 = 19.2, all others = 9600
+08000920  13FC 0001 1358          move.b    #1,4194372
+08000924  0040 0044 
+08000928  4E75      1359          rts
+                    1360   ; }
+                    1361   ; /*********************************************************************************************************
+                    1362   ; **  Subroutine to provide a low level output function to 6850 ACIA
+                    1363   ; **  This routine provides the basic functionality to output a single character to the serial Port
+                    1364   ; **  to allow the board to communicate with HyperTerminal Program
+                    1365   ; **
+                    1366   ; **  NOTE you do not call this function directly, instead you call the normal putchar() function
+                    1367   ; **  which in turn calls _putch() below). Other functions like puts(), printf() call putchar() so will
+                    1368   ; **  call _putch() also
+                    1369   ; *********************************************************************************************************/
+                    1370   ; int _putch( int c)
+                    1371   ; {
+                    1372   __putch:
+0800092A  4E56 0000 1373          link      A6,#0
+                    1374   ; while((RS232_Status & (char)(0x02)) != (char)(0x02))    // wait for Tx bit in status register or 6850 serial comms chip to be '1'
+                    1375   _putch_1:
+0800092E  1039 0040 1376          move.b    4194368,D0
+08000932  0040      
+08000934  C03C 0002 1377          and.b     #2,D0
+08000938  0C00 0002 1378          cmp.b     #2,D0
+0800093C  6702      1379          beq.s     _putch_3
+0800093E  60EE      1380          bra       _putch_1
+                    1381   _putch_3:
+                    1382   ; ;
+                    1383   ; RS232_TxData = (c & (char)(0x7f));                      // write to the data register to output the character (mask off bit 8 to keep it 7 bit ASCII)
+08000940  202E 0008 1384          move.l    8(A6),D0
+08000944  C0BC 0000 1385          and.l     #127,D0
+08000948  007F      
+0800094A  13C0 0040 1386          move.b    D0,4194370
+0800094E  0042      
+                    1387   ; return c ;                                              // putchar() expects the character to be returned
+08000950  202E 0008 1388          move.l    8(A6),D0
+08000954  4E5E      1389          unlk      A6
+08000956  4E75      1390          rts
+                    1391   ; }
+                    1392   ; /*********************************************************************************************************
+                    1393   ; **  Subroutine to provide a low level input function to 6850 ACIA
+                    1394   ; **  This routine provides the basic functionality to input a single character from the serial Port
+                    1395   ; **  to allow the board to communicate with HyperTerminal Program Keyboard (your PC)
+                    1396   ; **
+                    1397   ; **  NOTE you do not call this function directly, instead you call the normal getchar() function
+                    1398   ; **  which in turn calls _getch() below). Other functions like gets(), scanf() call getchar() so will
+                    1399   ; **  call _getch() also
+                    1400   ; *********************************************************************************************************/
+                    1401   ; int _getch( void )
+                    1402   ; {
+                    1403   __getch:
+08000958  2F02      1404          move.l    D2,-(A7)
+                    1405   ; char c ;
+                    1406   ; while((RS232_Status & (char)(0x01)) != (char)(0x01))    // wait for Rx bit in 6850 serial comms chip status register to be '1'
+                    1407   _getch_1:
+0800095A  1039 0040 1408          move.b    4194368,D0
+0800095E  0040      
+08000960  C03C 0001 1409          and.b     #1,D0
+08000964  0C00 0001 1410          cmp.b     #1,D0
+08000968  6702      1411          beq.s     _getch_3
+0800096A  60EE      1412          bra       _getch_1
+                    1413   _getch_3:
+                    1414   ; ;
+                    1415   ; c = (RS232_RxData & (char)(0x7f));
+0800096C  1039 0040 1416          move.b    4194370,D0
+08000970  0042      
+08000972  C03C 007F 1417          and.b     #127,D0
+08000976  1400      1418          move.b    D0,D2
+                    1419   ; _putch(c);
+08000978  4882      1420          ext.w     D2
+0800097A  48C2      1421          ext.l     D2
+0800097C  2F02      1422          move.l    D2,-(A7)
+0800097E  4EB9 0800 1423          jsr       __putch
+08000982  092A      
+08000984  584F      1424          addq.w    #4,A7
+                    1425   ; return c;                   // read received character, mask off top bit and return as 7 bit ASCII character
+08000986  4882      1426          ext.w     D2
+08000988  48C2      1427          ext.l     D2
+0800098A  2002      1428          move.l    D2,D0
+0800098C  241F      1429          move.l    (A7)+,D2
+0800098E  4E75      1430          rts
+                    1431   ; }
+                    1432   ; char xtod(int c)
+                    1433   ; {
+                    1434   _xtod:
+08000990  4E56 0000 1435          link      A6,#0
+08000994  2F02      1436          move.l    D2,-(A7)
+08000996  242E 0008 1437          move.l    8(A6),D2
+                    1438   ; if ((char)(c) <= (char)('9'))
+0800099A  0C02 0039 1439          cmp.b     #57,D2
+0800099E  6E08      1440          bgt.s     xtod_1
+                    1441   ; return c - (char)(0x30);    // 0 - 9 = 0x30 - 0x39 so convert to number by sutracting 0x30
+080009A0  1002      1442          move.b    D2,D0
+080009A2  0400 0030 1443          sub.b     #48,D0
+080009A6  6014      1444          bra.s     xtod_3
+                    1445   xtod_1:
+                    1446   ; else if((char)(c) > (char)('F'))    // assume lower case
+080009A8  0C02 0046 1447          cmp.b     #70,D2
+080009AC  6F08      1448          ble.s     xtod_4
+                    1449   ; return c - (char)(0x57);    // a-f = 0x61-66 so needs to be converted to 0x0A - 0x0F so subtract 0x57
+080009AE  1002      1450          move.b    D2,D0
+080009B0  0400 0057 1451          sub.b     #87,D0
+080009B4  6006      1452          bra.s     xtod_3
+                    1453   xtod_4:
+                    1454   ; else
+                    1455   ; return c - (char)(0x37);    // A-F = 0x41-46 so needs to be converted to 0x0A - 0x0F so subtract 0x37
+080009B6  1002      1456          move.b    D2,D0
+080009B8  0400 0037 1457          sub.b     #55,D0
+                    1458   xtod_3:
+080009BC  241F      1459          move.l    (A7)+,D2
+080009BE  4E5E      1460          unlk      A6
+080009C0  4E75      1461          rts
+                    1462   ; }
+                    1463   ; int Get1HexDigits(char *CheckSumPtr)
+                    1464   ; {
+                    1465   _Get1HexDigits:
+080009C2  4E56 0000 1466          link      A6,#0
+080009C6  2F02      1467          move.l    D2,-(A7)
+                    1468   ; register int i = xtod(_getch());
+080009C8  2F00      1469          move.l    D0,-(A7)
+080009CA  4EB9 0800 1470          jsr       __getch
+080009CE  0958      
+080009D0  2200      1471          move.l    D0,D1
+080009D2  201F      1472          move.l    (A7)+,D0
+080009D4  2F01      1473          move.l    D1,-(A7)
+080009D6  4EB9 0800 1474          jsr       _xtod
+080009DA  0990      
+080009DC  584F      1475          addq.w    #4,A7
+080009DE  C0BC 0000 1476          and.l     #255,D0
+080009E2  00FF      
+080009E4  2400      1477          move.l    D0,D2
+                    1478   ; if(CheckSumPtr)
+080009E6  4AAE 0008 1479          tst.l     8(A6)
+080009EA  6706      1480          beq.s     Get1HexDigits_1
+                    1481   ; *CheckSumPtr += i ;
+080009EC  206E 0008 1482          move.l    8(A6),A0
+080009F0  D510      1483          add.b     D2,(A0)
+                    1484   Get1HexDigits_1:
+                    1485   ; return i; 
+080009F2  2002      1486          move.l    D2,D0
+080009F4  241F      1487          move.l    (A7)+,D2
+080009F6  4E5E      1488          unlk      A6
+080009F8  4E75      1489          rts
+                    1490   ; }
+                    1491   ; int Get2HexDigits(char *CheckSumPtr)
+                    1492   ; {
+                    1493   _Get2HexDigits:
+080009FA  4E56 0000 1494          link      A6,#0
+080009FE  2F02      1495          move.l    D2,-(A7)
+                    1496   ; register int i = (xtod(_getch()) << 4) | (xtod(_getch()));
+08000A00  2F00      1497          move.l    D0,-(A7)
+08000A02  4EB9 0800 1498          jsr       __getch
+08000A06  0958      
+08000A08  2200      1499          move.l    D0,D1
+08000A0A  201F      1500          move.l    (A7)+,D0
+08000A0C  2F01      1501          move.l    D1,-(A7)
+08000A0E  4EB9 0800 1502          jsr       _xtod
+08000A12  0990      
+08000A14  584F      1503          addq.w    #4,A7
+08000A16  C0BC 0000 1504          and.l     #255,D0
+08000A1A  00FF      
+08000A1C  E980      1505          asl.l     #4,D0
+08000A1E  2F00      1506          move.l    D0,-(A7)
+08000A20  2F01      1507          move.l    D1,-(A7)
+08000A22  4EB9 0800 1508          jsr       __getch
+08000A26  0958      
+08000A28  221F      1509          move.l    (A7)+,D1
+08000A2A  2F00      1510          move.l    D0,-(A7)
+08000A2C  4EB9 0800 1511          jsr       _xtod
+08000A30  0990      
+08000A32  584F      1512          addq.w    #4,A7
+08000A34  2200      1513          move.l    D0,D1
+08000A36  201F      1514          move.l    (A7)+,D0
+08000A38  C2BC 0000 1515          and.l     #255,D1
+08000A3C  00FF      
+08000A3E  8081      1516          or.l      D1,D0
+08000A40  2400      1517          move.l    D0,D2
+                    1518   ; if(CheckSumPtr)
+08000A42  4AAE 0008 1519          tst.l     8(A6)
+08000A46  6706      1520          beq.s     Get2HexDigits_1
+                    1521   ; *CheckSumPtr += i ;
+08000A48  206E 0008 1522          move.l    8(A6),A0
+08000A4C  D510      1523          add.b     D2,(A0)
+                    1524   Get2HexDigits_1:
+                    1525   ; return i ;
+08000A4E  2002      1526          move.l    D2,D0
+08000A50  241F      1527          move.l    (A7)+,D2
+08000A52  4E5E      1528          unlk      A6
+08000A54  4E75      1529          rts
+                    1530   ; }
+                    1531   ; int Get4HexDigits(char *CheckSumPtr)
+                    1532   ; {
+                    1533   _Get4HexDigits:
+08000A56  4E56 0000 1534          link      A6,#0
+                    1535   ; return (Get2HexDigits(CheckSumPtr) << 8) | (Get2HexDigits(CheckSumPtr));
+08000A5A  2F2E 0008 1536          move.l    8(A6),-(A7)
+08000A5E  4EB9 0800 1537          jsr       _Get2HexDigits
+08000A62  09FA      
+08000A64  584F      1538          addq.w    #4,A7
+08000A66  E180      1539          asl.l     #8,D0
+08000A68  2F00      1540          move.l    D0,-(A7)
+08000A6A  2F2E 0008 1541          move.l    8(A6),-(A7)
+08000A6E  4EB9 0800 1542          jsr       _Get2HexDigits
+08000A72  09FA      
+08000A74  584F      1543          addq.w    #4,A7
+08000A76  2200      1544          move.l    D0,D1
+08000A78  201F      1545          move.l    (A7)+,D0
+08000A7A  8081      1546          or.l      D1,D0
+08000A7C  4E5E      1547          unlk      A6
+08000A7E  4E75      1548          rts
+                    1549   ; }
+                    1550   ; int Get6HexDigits(char *CheckSumPtr)
+                    1551   ; {
+                    1552   _Get6HexDigits:
+08000A80  4E56 0000 1553          link      A6,#0
+                    1554   ; return (Get4HexDigits(CheckSumPtr) << 8) | (Get2HexDigits(CheckSumPtr));
+08000A84  2F2E 0008 1555          move.l    8(A6),-(A7)
+08000A88  4EB9 0800 1556          jsr       _Get4HexDigits
+08000A8C  0A56      
+08000A8E  584F      1557          addq.w    #4,A7
+08000A90  E180      1558          asl.l     #8,D0
+08000A92  2F00      1559          move.l    D0,-(A7)
+08000A94  2F2E 0008 1560          move.l    8(A6),-(A7)
+08000A98  4EB9 0800 1561          jsr       _Get2HexDigits
+08000A9C  09FA      
+08000A9E  584F      1562          addq.w    #4,A7
+08000AA0  2200      1563          move.l    D0,D1
+08000AA2  201F      1564          move.l    (A7)+,D0
+08000AA4  8081      1565          or.l      D1,D0
+08000AA6  4E5E      1566          unlk      A6
+08000AA8  4E75      1567          rts
+                    1568   ; }
+                    1569   ; int Get8HexDigits(char *CheckSumPtr)
+                    1570   ; {
+                    1571   _Get8HexDigits:
+08000AAA  4E56 0000 1572          link      A6,#0
+                    1573   ; return (Get4HexDigits(CheckSumPtr) << 16) | (Get4HexDigits(CheckSumPtr));
+08000AAE  2F2E 0008 1574          move.l    8(A6),-(A7)
+08000AB2  4EB9 0800 1575          jsr       _Get4HexDigits
+08000AB6  0A56      
+08000AB8  584F      1576          addq.w    #4,A7
+08000ABA  E180      1577          asl.l     #8,D0
+08000ABC  E180      1578          asl.l     #8,D0
+08000ABE  2F00      1579          move.l    D0,-(A7)
+08000AC0  2F2E 0008 1580          move.l    8(A6),-(A7)
+08000AC4  4EB9 0800 1581          jsr       _Get4HexDigits
+08000AC8  0A56      
+08000ACA  584F      1582          addq.w    #4,A7
+08000ACC  2200      1583          move.l    D0,D1
+08000ACE  201F      1584          move.l    (A7)+,D0
+08000AD0  8081      1585          or.l      D1,D0
+08000AD2  4E5E      1586          unlk      A6
+08000AD4  4E75      1587          rts
+                    1588   ; }
+                    1589   ; /******************************************************************************
+                    1590   ; **  Subroutine to output a single character to the 2 row LCD display
+                    1591   ; **  It is assumed the character is an ASCII code and it will be displayed at the
+                    1592   ; **  current cursor position
+                    1593   ; *******************************************************************************/
+                    1594   ; void LCDOutchar(int c)
+                    1595   ; {
+                    1596   _LCDOutchar:
+08000AD6  4E56 0000 1597          link      A6,#0
+                    1598   ; LCDdata = (char)(c);
+08000ADA  202E 0008 1599          move.l    8(A6),D0
+08000ADE  13C0 0040 1600          move.b    D0,4194338
+08000AE2  0022      
+                    1601   ; Wait1ms() ;
+08000AE4  4EB9 0800 1602          jsr       _Wait1ms
+08000AE8  08B2      
+08000AEA  4E5E      1603          unlk      A6
+08000AEC  4E75      1604          rts
+                    1605   ; }
+                    1606   ; /**********************************************************************************
+                    1607   ; *subroutine to output a message at the current cursor position of the LCD display
+                    1608   ; ************************************************************************************/
+                    1609   ; void LCDOutMessage(char *theMessage)
+                    1610   ; {
+                    1611   _LCDOutMessage:
+08000AEE  4E56 FFFC 1612          link      A6,#-4
+                    1613   ; char c ;
+                    1614   ; while((c = *theMessage++) != 0)     // output characters from the string until NULL
+                    1615   LCDOutMessage_1:
+08000AF2  206E 0008 1616          move.l    8(A6),A0
+08000AF6  52AE 0008 1617          addq.l    #1,8(A6)
+08000AFA  1D50 FFFF 1618          move.b    (A0),-1(A6)
+08000AFE  1010      1619          move.b    (A0),D0
+08000B00  6714      1620          beq.s     LCDOutMessage_3
+                    1621   ; LCDOutchar(c) ;
+08000B02  122E FFFF 1622          move.b    -1(A6),D1
+08000B06  4881      1623          ext.w     D1
+08000B08  48C1      1624          ext.l     D1
+08000B0A  2F01      1625          move.l    D1,-(A7)
+08000B0C  4EB9 0800 1626          jsr       _LCDOutchar
+08000B10  0AD6      
+08000B12  584F      1627          addq.w    #4,A7
+08000B14  60DC      1628          bra       LCDOutMessage_1
+                    1629   LCDOutMessage_3:
+08000B16  4E5E      1630          unlk      A6
+08000B18  4E75      1631          rts
+                    1632   ; }
+                    1633   ; /******************************************************************************
+                    1634   ; *subroutine to clear the line by issuing 24 space characters
+                    1635   ; *******************************************************************************/
+                    1636   ; void LCDClearln(void)
+                    1637   ; {
+                    1638   _LCDClearln:
+08000B1A  2F02      1639          move.l    D2,-(A7)
+                    1640   ; int i ;
+                    1641   ; for(i = 0; i < 24; i ++)
+08000B1C  4282      1642          clr.l     D2
+                    1643   LCDClearln_1:
+08000B1E  0C82 0000 1644          cmp.l     #24,D2
+08000B22  0018      
+08000B24  6C10      1645          bge.s     LCDClearln_3
+                    1646   ; LCDOutchar(' ') ;       // write a space char to the LCD display
+08000B26  4878 0020 1647          pea       32
+08000B2A  4EB9 0800 1648          jsr       _LCDOutchar
+08000B2E  0AD6      
+08000B30  584F      1649          addq.w    #4,A7
+08000B32  5282      1650          addq.l    #1,D2
+08000B34  60E8      1651          bra       LCDClearln_1
+                    1652   LCDClearln_3:
+08000B36  241F      1653          move.l    (A7)+,D2
+08000B38  4E75      1654          rts
+                    1655   ; }
+                    1656   ; /******************************************************************************
+                    1657   ; **  Subroutine to move the LCD cursor to the start of line 1 and clear that line
+                    1658   ; *******************************************************************************/
+                    1659   ; void LCDLine1Message(char *theMessage)
+                    1660   ; {
+                    1661   _LCDLine1Message:
+08000B3A  4E56 0000 1662          link      A6,#0
+                    1663   ; LCDcommand = 0x80 ;
+08000B3E  13FC 0080 1664          move.b    #128,4194336
+08000B42  0040 0020 
+                    1665   ; Wait3ms();
+08000B46  4EB9 0800 1666          jsr       _Wait3ms
+08000B4A  08C6      
+                    1667   ; LCDClearln() ;
+08000B4C  4EB9 0800 1668          jsr       _LCDClearln
+08000B50  0B1A      
+                    1669   ; LCDcommand = 0x80 ;
+08000B52  13FC 0080 1670          move.b    #128,4194336
+08000B56  0040 0020 
+                    1671   ; Wait3ms() ;
+08000B5A  4EB9 0800 1672          jsr       _Wait3ms
+08000B5E  08C6      
+                    1673   ; LCDOutMessage(theMessage) ;
+08000B60  2F2E 0008 1674          move.l    8(A6),-(A7)
+08000B64  4EB9 0800 1675          jsr       _LCDOutMessage
+08000B68  0AEE      
+08000B6A  584F      1676          addq.w    #4,A7
+08000B6C  4E5E      1677          unlk      A6
+08000B6E  4E75      1678          rts
+                    1679   ; }
+                    1680   ; /******************************************************************************
+                    1681   ; **  Subroutine to move the LCD cursor to the start of line 2 and clear that line
+                    1682   ; *******************************************************************************/
+                    1683   ; void LCDLine2Message(char *theMessage)
+                    1684   ; {
+                    1685   _LCDLine2Message:
+08000B70  4E56 0000 1686          link      A6,#0
+                    1687   ; LCDcommand = 0xC0 ;
+08000B74  13FC 00C0 1688          move.b    #192,4194336
+08000B78  0040 0020 
+                    1689   ; Wait3ms();
+08000B7C  4EB9 0800 1690          jsr       _Wait3ms
+08000B80  08C6      
+                    1691   ; LCDClearln() ;
+08000B82  4EB9 0800 1692          jsr       _LCDClearln
+08000B86  0B1A      
+                    1693   ; LCDcommand = 0xC0 ;
+08000B88  13FC 00C0 1694          move.b    #192,4194336
+08000B8C  0040 0020 
+                    1695   ; Wait3ms() ;
+08000B90  4EB9 0800 1696          jsr       _Wait3ms
+08000B94  08C6      
+                    1697   ; LCDOutMessage(theMessage) ;
+08000B96  2F2E 0008 1698          move.l    8(A6),-(A7)
+08000B9A  4EB9 0800 1699          jsr       _LCDOutMessage
+08000B9E  0AEE      
+08000BA0  584F      1700          addq.w    #4,A7
+08000BA2  4E5E      1701          unlk      A6
+08000BA4  4E75      1702          rts
+                    1703   ; }
+                    1704   ; /*********************************************************************************************************************************
+                    1705   ; **  IMPORTANT FUNCTION
+                    1706   ; **  This function install an exception handler so you can capture and deal with any 68000 exception in your program
+                    1707   ; **  You pass it the name of a function in your code that will get called in response to the exception (as the 1st parameter)
+                    1708   ; **  and in the 2nd parameter, you pass it the exception number that you want to take over (see 68000 exceptions for details)
+                    1709   ; **  Calling this function allows you to deal with Interrupts for example
+                    1710   ; ***********************************************************************************************************************************/
+                    1711   ; void InstallExceptionHandler( void (*function_ptr)(), int level)
+                    1712   ; {
+                    1713   _InstallExceptionHandler:
+08000BA6  4E56 FFFC 1714          link      A6,#-4
+                    1715   ; volatile long int *RamVectorAddress = (volatile long int *)(StartOfExceptionVectorTable) ;   // pointer to the Ram based interrupt vector table created in Cstart in debug monitor
+08000BAA  2D7C 0B00 1716          move.l    #184549376,-4(A6)
+08000BAE  0000 FFFC 
+                    1717   ; RamVectorAddress[level] = (long int *)(function_ptr);                       // install the address of our function into the exception table
+08000BB2  206E FFFC 1718          move.l    -4(A6),A0
+08000BB6  202E 000C 1719          move.l    12(A6),D0
+08000BBA  E588      1720          lsl.l     #2,D0
+08000BBC  21AE 0008 1721          move.l    8(A6),0(A0,D0.L)
+08000BC0  0800      
+08000BC2  4E5E      1722          unlk      A6
+08000BC4  4E75      1723          rts
+                    1724   ; }
+                    1725   ; /******************************************************************************************************************************
+                    1726   ; * Start of user program
+                    1727   ; ******************************************************************************************************************************/
+                    1728   ; void main()
+                    1729   ; {   
+                    1730   _main:
+08000BC6  4E56 FF54 1731          link      A6,#-172
+08000BCA  48E7 3020 1732          movem.l   D2/D3/A2,-(A7)
+08000BCE  45F9 0800 1733          lea       _InstallExceptionHandler.L,A2
+08000BD2  0BA6      
+                    1734   ; unsigned int row, i=0, count=0, counter1=1;
+08000BD4  42AE FF58 1735          clr.l     -168(A6)
+08000BD8  42AE FF5C 1736          clr.l     -164(A6)
+08000BDC  2D7C 0000 1737          move.l    #1,-160(A6)
+08000BE0  0001 FF60 
+                    1738   ; char c, text[150] ;
+                    1739   ; int f;
+                    1740   ; int valid;
+                    1741   ; int PassFailFlag = 1 ;
+08000BE4  2D7C 0000 1742          move.l    #1,-4(A6)
+08000BE8  0001 FFFC 
+                    1743   ; i = x = y = z = PortA_Count =0;
+08000BEC  42B9 0800 1744          clr.l     _PortA_Count.L
+08000BF0  1CC4      
+08000BF2  42B9 0800 1745          clr.l     _z.L
+08000BF6  1CC0      
+08000BF8  42B9 0800 1746          clr.l     _y.L
+08000BFC  1CBC      
+08000BFE  42B9 0800 1747          clr.l     _x.L
+08000C02  1CB8      
+08000C04  42AE FF58 1748          clr.l     -168(A6)
+                    1749   ; Timer1Count = Timer2Count = Timer3Count = Timer4Count = 0;
+08000C08  4239 0800 1750          clr.b     _Timer4Count.L
+08000C0C  1CCE      
+08000C0E  4239 0800 1751          clr.b     _Timer3Count.L
+08000C12  1CCC      
+08000C14  4239 0800 1752          clr.b     _Timer2Count.L
+08000C18  1CCA      
+08000C1A  4239 0800 1753          clr.b     _Timer1Count.L
+08000C1E  1CC8      
+                    1754   ; InstallExceptionHandler(PIA_ISR, 25) ;          // install interrupt handler for PIAs 1 and 2 on level 1 IRQ
+08000C20  4878 0019 1755          pea       25
+08000C24  4879 0800 1756          pea       _PIA_ISR.L
+08000C28  08AC      
+08000C2A  4E92      1757          jsr       (A2)
+08000C2C  504F      1758          addq.w    #8,A7
+                    1759   ; InstallExceptionHandler(ACIA_ISR, 26) ;		    // install interrupt handler for ACIA on level 2 IRQ
+08000C2E  4878 001A 1760          pea       26
+08000C32  4879 0800 1761          pea       _ACIA_ISR.L
+08000C36  08AA      
+08000C38  4E92      1762          jsr       (A2)
+08000C3A  504F      1763          addq.w    #8,A7
+                    1764   ; InstallExceptionHandler(Timer_ISR, 27) ;		// install interrupt handler for Timers 1-4 on level 3 IRQ
+08000C3C  4878 001B 1765          pea       27
+08000C40  4879 0800 1766          pea       _Timer_ISR.L
+08000C44  0810      
+08000C46  4E92      1767          jsr       (A2)
+08000C48  504F      1768          addq.w    #8,A7
+                    1769   ; InstallExceptionHandler(Key2PressISR, 28) ;	    // install interrupt handler for Key Press 2 on DE1 board for level 4 IRQ
+08000C4A  4878 001C 1770          pea       28
+08000C4E  4879 0800 1771          pea       _Key2PressISR.L
+08000C52  08AE      
+08000C54  4E92      1772          jsr       (A2)
+08000C56  504F      1773          addq.w    #8,A7
+                    1774   ; InstallExceptionHandler(Key1PressISR, 29) ;	    // install interrupt handler for Key Press 1 on DE1 board for level 5 IRQ
+08000C58  4878 001D 1775          pea       29
+08000C5C  4879 0800 1776          pea       _Key1PressISR.L
+08000C60  08B0      
+08000C62  4E92      1777          jsr       (A2)
+08000C64  504F      1778          addq.w    #8,A7
+                    1779   ; Timer1Data = 0x10;		// program time delay into timers 1-4
+08000C66  13FC 0010 1780          move.b    #16,4194352
+08000C6A  0040 0030 
+                    1781   ; Timer2Data = 0x20;
+08000C6E  13FC 0020 1782          move.b    #32,4194356
+08000C72  0040 0034 
+                    1783   ; Timer3Data = 0x15;
+08000C76  13FC 0015 1784          move.b    #21,4194360
+08000C7A  0040 0038 
+                    1785   ; Timer4Data = 0x25;
+08000C7E  13FC 0025 1786          move.b    #37,4194364
+08000C82  0040 003C 
+                    1787   ; Timer1Control = 3;		// write 3 to control register to Bit0 = 1 (enable interrupt from timers) 1 - 4 and allow them to count Bit 1 = 1
+08000C86  13FC 0003 1788          move.b    #3,4194354
+08000C8A  0040 0032 
+                    1789   ; Timer2Control = 3;
+08000C8E  13FC 0003 1790          move.b    #3,4194358
+08000C92  0040 0036 
+                    1791   ; Timer3Control = 3;
+08000C96  13FC 0003 1792          move.b    #3,4194362
+08000C9A  0040 003A 
+                    1793   ; Timer4Control = 3;
+08000C9E  13FC 0003 1794          move.b    #3,4194366
+08000CA2  0040 003E 
+                    1795   ; Init_LCD();             // initialise the LCD display to use a parallel data interface and 2 lines of display
+08000CA6  4EB9 0800 1796          jsr       _Init_LCD
+08000CAA  08FA      
+                    1797   ; Init_RS232() ;          // initialise the RS232 port for use with hyper terminal
+08000CAC  4EB9 0800 1798          jsr       _Init_RS232
+08000CB0  0918      
+                    1799   ; /************************************************************************************************
+                    1800   ; **  Test of scanf function
+                    1801   ; ************************************************************************************************/
+                    1802   ; /*scanflush() ;                       // flush any text that may have been typed ahead
+                    1803   ; printf("\r\nEnter Integer: ") ;
+                    1804   ; scanf("%d", &i) ;
+                    1805   ; printf("You entered %d", i) ;
+                    1806   ; sprintf(text, "Hello CPEN 412 Student") ;
+                    1807   ; LCDLine1Message(text) ;
+                    1808   ; printf("\r\nHello CPEN 412 Student\r\nYour LEDs should be Flashing") ;
+                    1809   ; printf("\r\nYour LCD should be displaying") ;
+                    1810   ; while(1)
+                    1811   ; ;*/
+                    1812   ; //printf("\r\nBig Brother is watching you");
+                    1813   ; I2C_init ();
+08000CB2  4EB9 0800 1814          jsr       _I2C_init
+08000CB6  00F2      
+                    1815   ; //I2C_byte_write();
+                    1816   ; //I2C_byte_write();
+                    1817   ; //I2C_multi_write();
+                    1818   ; //I2C_byte_read();
+                    1819   ; /*I2C_byte_read();
+                    1820   ; I2C_byte_read();
+                    1821   ; I2C_byte_read();
+                    1822   ; I2C_byte_read();*/
+                    1823   ; //I2C_multi_read();
+                    1824   ; //DAC();
+                    1825   ; //ADC();
+                    1826   ; while(1) {
+                    1827   main_1:
+                    1828   ; valid = 0;
+08000CB8  4283      1829          clr.l     D3
+                    1830   ; while (!valid) {
+                    1831   main_4:
+08000CBA  4A83      1832          tst.l     D3
+08000CBC  6600 0042 1833          bne       main_6
+                    1834   ; printf("\r\nWhich function you want to run?\n1.EEPROM single byte write\n2.EEPROM single byte read\n3.EEPROM page write\n4.EEPROM page read\n5.DAC->LED\n6.ADC<-sensors ");
+08000CC0  4879 0800 1835          pea       @m68kus~1_21.L
+08000CC4  1AEA      
+08000CC6  4EB9 0800 1836          jsr       _printf
+08000CCA  0E42      
+08000CCC  584F      1837          addq.w    #4,A7
+                    1838   ; f = Get1HexDigits(0);
+08000CCE  42A7      1839          clr.l     -(A7)
+08000CD0  4EB9 0800 1840          jsr       _Get1HexDigits
+08000CD4  09C2      
+08000CD6  584F      1841          addq.w    #4,A7
+08000CD8  2400      1842          move.l    D0,D2
+                    1843   ; if (f >= 1 && f <= 6) {
+08000CDA  0C82 0000 1844          cmp.l     #1,D2
+08000CDE  0001      
+08000CE0  6D0C      1845          blt.s     main_7
+08000CE2  0C82 0000 1846          cmp.l     #6,D2
+08000CE6  0006      
+08000CE8  6E04      1847          bgt.s     main_7
+                    1848   ; valid = 1;
+08000CEA  7601      1849          moveq     #1,D3
+08000CEC  6010      1850          bra.s     main_8
+                    1851   main_7:
+                    1852   ; } else {
+                    1853   ; printf("\r\nInvalid selection! ");
+08000CEE  4879 0800 1854          pea       @m68kus~1_22.L
+08000CF2  1B84      
+08000CF4  4EB9 0800 1855          jsr       _printf
+08000CF8  0E42      
+08000CFA  584F      1856          addq.w    #4,A7
+                    1857   ; valid = 0;
+08000CFC  4283      1858          clr.l     D3
+                    1859   main_8:
+08000CFE  60BA      1860          bra       main_4
+                    1861   main_6:
+                    1862   ; }
+                    1863   ; }
+                    1864   ; if (f == 1){
+08000D00  0C82 0000 1865          cmp.l     #1,D2
+08000D04  0001      
+08000D06  660A      1866          bne.s     main_9
+                    1867   ; I2C_byte_write();
+08000D08  4EB9 0800 1868          jsr       _I2C_byte_write
+08000D0C  0148      
+08000D0E  6000 0050 1869          bra       main_19
+                    1870   main_9:
+                    1871   ; } else if (f == 2){
+08000D12  0C82 0000 1872          cmp.l     #2,D2
+08000D16  0002      
+08000D18  6608      1873          bne.s     main_11
+                    1874   ; I2C_byte_read();
+08000D1A  4EB9 0800 1875          jsr       _I2C_byte_read
+08000D1E  0224      
+08000D20  603E      1876          bra.s     main_19
+                    1877   main_11:
+                    1878   ; } else if (f == 3){
+08000D22  0C82 0000 1879          cmp.l     #3,D2
+08000D26  0003      
+08000D28  6608      1880          bne.s     main_13
+                    1881   ; I2C_multi_write();
+08000D2A  4EB9 0800 1882          jsr       _I2C_multi_write
+08000D2E  03D0      
+08000D30  602E      1883          bra.s     main_19
+                    1884   main_13:
+                    1885   ; } else if (f == 4){
+08000D32  0C82 0000 1886          cmp.l     #4,D2
+08000D36  0004      
+08000D38  6608      1887          bne.s     main_15
+                    1888   ; I2C_multi_read();
+08000D3A  4EB9 0800 1889          jsr       _I2C_multi_read
+08000D3E  0516      
+08000D40  601E      1890          bra.s     main_19
+                    1891   main_15:
+                    1892   ; } else if (f == 5){
+08000D42  0C82 0000 1893          cmp.l     #5,D2
+08000D46  0005      
+08000D48  6608      1894          bne.s     main_17
+                    1895   ; DAC();
+08000D4A  4EB9 0800 1896          jsr       _DAC
+08000D4E  0696      
+08000D50  600E      1897          bra.s     main_19
+                    1898   main_17:
+                    1899   ; } else if (f == 6){
+08000D52  0C82 0000 1900          cmp.l     #6,D2
+08000D56  0006      
+08000D58  6606      1901          bne.s     main_19
+                    1902   ; ADC();
+08000D5A  4EB9 0800 1903          jsr       _ADC
+08000D5E  070C      
+                    1904   main_19:
+08000D60  6000 FF56 1905          bra       main_1
+                    1906   ; }
+                    1907   ; }
+                    1908   ; // programs should NOT exit as there is nothing to Exit TO !!!!!!
+                    1909   ; // There is no OS - just press the reset button to end program and call debug
+                    1910   ; }
+                    1911   ULDIV:
+08000D64  4E56 0000 1912          link    A6,#0
+08000D68  48E7 C000 1913          movem.l D0/D1,-(A7)
+08000D6C  222E 0008 1914          move.l  8(A6),D1
+08000D70  202E 000C 1915          move.l  12(A6),D0
+08000D74  6036      1916          bra.s   ldiv_3
+                    1917   LDIV:
+08000D76  4E56 0000 1918          link    A6,#0
+08000D7A  48E7 C000 1919          movem.l D0/D1,-(A7)
+08000D7E  222E 0008 1920          move.l  8(A6),D1
+08000D82  202E 000C 1921          move.l  12(A6),D0
+08000D86  4A80      1922          tst.l   D0
+08000D88  6A0E      1923          bpl.s   ldiv_1
+08000D8A  4480      1924          neg.l   D0
+08000D8C  4A81      1925          tst.l   D1
+08000D8E  6A14      1926          bpl.s   ldiv_2
+08000D90  4481      1927          neg.l   D1
+08000D92  612A      1928          bsr.s   dodiv
+08000D94  4481      1929          neg.l   D1
+08000D96  6016      1930          bra.s   ldiv_4
+                    1931   ldiv_1:
+08000D98  4A81      1932          tst.l   D1
+08000D9A  6A10      1933          bpl.s   ldiv_3
+08000D9C  4481      1934          neg.l   D1
+08000D9E  611E      1935          bsr.s   dodiv
+08000DA0  4480      1936          neg.l   D0
+08000DA2  600A      1937          bra.s   ldiv_4
+                    1938   ldiv_2:
+08000DA4  6118      1939          bsr.s   dodiv
+08000DA6  4480      1940          neg.l   D0
+08000DA8  4481      1941          neg.l   D1
+08000DAA  6002      1942          bra.s   ldiv_4
+                    1943   ldiv_3:
+08000DAC  6110      1944          bsr.s   dodiv
+                    1945   ldiv_4:
+08000DAE  2D40 0008 1946          move.l  D0,8(A6)
+08000DB2  2D41 000C 1947          move.l  D1,12(A6)
+08000DB6  4CDF 0003 1948          movem.l (A7)+,D0/D1
+08000DBA  4E5E      1949          unlk    A6
+08000DBC  4E75      1950          rts
+                    1951   dodiv:
+08000DBE  0C81 0000 1952          cmpi.l  #$FFFF,D1
+08000DC2  FFFF      
+08000DC4  6236      1953          bhi.s   dodiv_2
+08000DC6  0C80 0000 1954          cmpi.l  #$FFFF,D0
+08000DCA  FFFF      
+08000DCC  6210      1955          bhi.s   dodiv_1
+08000DCE  80C1      1956          divu    D1,D0
+08000DD0  2200      1957          move.l  D0,D1
+08000DD2  4241      1958          clr.w   D1
+08000DD4  4841      1959          swap    D1
+08000DD6  0280 0000 1960          andi.l  #$FFFF,D0
+08000DDA  FFFF      
+08000DDC  4E75      1961          rts
+                    1962   dodiv_1:
+08000DDE  48A7 A000 1963          movem.w D0/D2,-(A7)
+08000DE2  4240      1964          clr.w   D0
+08000DE4  4840      1965          swap    D0
+08000DE6  80C1      1966          divu    D1,D0
+08000DE8  3400      1967          move.w  D0,D2
+08000DEA  301F      1968          move.w  (A7)+,D0
+08000DEC  80C1      1969          divu    D1,D0
+08000DEE  4840      1970          swap    D0
+08000DF0  4281      1971          clr.l   D1
+08000DF2  3200      1972          move.w  D0,D1
+08000DF4  3002      1973          move.w  D2,D0
+08000DF6  4840      1974          swap    D0
+08000DF8  341F      1975          move.w  (A7)+,D2
+08000DFA  4E75      1976          rts
+                    1977   dodiv_2:
+08000DFC  48E7 3800 1978          movem.l D2/D3/D4,-(A7)
+08000E00  2401      1979          move.l  D1,D2
+08000E02  4242      1980          clr.w   D2
+08000E04  4842      1981          swap    D2
+08000E06  5282      1982          addq.l  #1,D2
+08000E08  2600      1983          move.l  D0,D3
+08000E0A  2801      1984          move.l  D1,D4
+08000E0C  2202      1985          move.l  D2,D1
+08000E0E  61CE      1986          bsr.s   dodiv_1
+08000E10  2204      1987          move.l  D4,D1
+08000E12  82C2      1988          divu    D2,D1
+08000E14  80C1      1989          divu    D1,D0
+08000E16  0280 0000 1990          andi.l  #$FFFF,D0
+08000E1A  FFFF      
+                    1991   dodiv_3:
+08000E1C  2204      1992          move.l  D4,D1
+08000E1E  2404      1993          move.l  D4,D2
+08000E20  4842      1994          swap    D2
+08000E22  C2C0      1995          mulu    D0,D1
+08000E24  C4C0      1996          mulu    D0,D2
+08000E26  4842      1997          swap    D2
+08000E28  D282      1998          add.l   D2,D1
+08000E2A  9283      1999          sub.l   D3,D1
+08000E2C  620A      2000          bhi.s   dodiv_4
+08000E2E  4481      2001          neg.l   D1
+08000E30  B881      2002          cmp.l   D1,D4
+08000E32  6208      2003          bhi.s   dodiv_5
+08000E34  5280      2004          addq.l  #1,D0
+08000E36  60E4      2005          bra.s   dodiv_3
+                    2006   dodiv_4:
+08000E38  5380      2007          subq.l  #1,D0
+08000E3A  60E0      2008          bra.s   dodiv_3
+                    2009   dodiv_5:
+08000E3C  4CDF 001C 2010          movem.l (A7)+,D2/D3/D4
+08000E40  4E75      2011          rts
+                    2012   _printf:
+08000E42  4E56 FFFC 2013          link      A6,#-4
+08000E46  2F02      2014          move.l    D2,-(A7)
+08000E48  41EE 0008 2015          lea       8(A6),A0
+08000E4C  5848      2016          addq.w    #4,A0
+08000E4E  2408      2017          move.l    A0,D2
+08000E50  2F02      2018          move.l    D2,-(A7)
+08000E52  2F2E 0008 2019          move.l    8(A6),-(A7)
+08000E56  42A7      2020          clr.l     -(A7)
+08000E58  4EB9 0800 2021          jsr       _doprint
+08000E5C  0F1A      
+08000E5E  DEFC 000C 2022          add.w     #12,A7
+08000E62  2D40 FFFC 2023          move.l    D0,-4(A6)
+08000E66  4282      2024          clr.l     D2
+08000E68  202E FFFC 2025          move.l    -4(A6),D0
+08000E6C  241F      2026          move.l    (A7)+,D2
+08000E6E  4E5E      2027          unlk      A6
+08000E70  4E75      2028          rts
+                    2029   @doprint_copy:
+08000E72  4E56 0000 2030          link      A6,#0
+08000E76  206E 0008 2031          move.l    8(A6),A0
+08000E7A  4A90      2032          tst.l     (A0)
+08000E7C  6710      2033          beq.s     @doprint_copy_1
+08000E7E  202E 000C 2034          move.l    12(A6),D0
+08000E82  206E 0008 2035          move.l    8(A6),A0
+08000E86  2250      2036          move.l    (A0),A1
+08000E88  5290      2037          addq.l    #1,(A0)
+08000E8A  1280      2038          move.b    D0,(A1)
+08000E8C  600C      2039          bra.s     @doprint_copy_2
+                    2040   @doprint_copy_1:
+08000E8E  2F2E 000C 2041          move.l    12(A6),-(A7)
+08000E92  4EB9 0800 2042          jsr       _putch
+08000E96  176C      
+08000E98  584F      2043          addq.w    #4,A7
+                    2044   @doprint_copy_2:
+08000E9A  4E5E      2045          unlk      A6
+08000E9C  4E75      2046          rts
+                    2047   @doprint_getval:
+08000E9E  4E56 0000 2048          link      A6,#0
+08000EA2  48E7 3000 2049          movem.l   D2/D3,-(A7)
+08000EA6  262E 0008 2050          move.l    8(A6),D3
+08000EAA  4282      2051          clr.l     D2
+08000EAC  2043      2052          move.l    D3,A0
+08000EAE  2050      2053          move.l    (A0),A0
+08000EB0  1010      2054          move.b    (A0),D0
+08000EB2  0C00 002A 2055          cmp.b     #42,D0
+08000EB6  6612      2056          bne.s     @doprint_getval_1
+08000EB8  206E 000C 2057          move.l    12(A6),A0
+08000EBC  2250      2058          move.l    (A0),A1
+08000EBE  5890      2059          addq.l    #4,(A0)
+08000EC0  2411      2060          move.l    (A1),D2
+08000EC2  2043      2061          move.l    D3,A0
+08000EC4  5290      2062          addq.l    #1,(A0)
+08000EC6  6000 0048 2063          bra       @doprint_getval_5
+                    2064   @doprint_getval_1:
+08000ECA  7001      2065          moveq     #1,D0
+08000ECC  2043      2066          move.l    D3,A0
+08000ECE  2050      2067          move.l    (A0),A0
+08000ED0  1210      2068          move.b    (A0),D1
+08000ED2  4881      2069          ext.w     D1
+08000ED4  48C1      2070          ext.l     D1
+08000ED6  D081      2071          add.l     D1,D0
+08000ED8  41F9 0800 2072          lea       __ctype.L,A0
+08000EDC  1BA6      
+08000EDE  1030 0800 2073          move.b    0(A0,D0.L),D0
+08000EE2  C03C 0004 2074          and.b     #4,D0
+08000EE6  6728      2075          beq.s     @doprint_getval_5
+08000EE8  2F02      2076          move.l    D2,-(A7)
+08000EEA  4878 000A 2077          pea       10
+08000EEE  4EB9 0800 2078          jsr       LMUL
+08000EF2  16CC      
+08000EF4  2017      2079          move.l    (A7),D0
+08000EF6  504F      2080          addq.w    #8,A7
+08000EF8  2043      2081          move.l    D3,A0
+08000EFA  2250      2082          move.l    (A0),A1
+08000EFC  5290      2083          addq.l    #1,(A0)
+08000EFE  1211      2084          move.b    (A1),D1
+08000F00  4881      2085          ext.w     D1
+08000F02  48C1      2086          ext.l     D1
+08000F04  D081      2087          add.l     D1,D0
+08000F06  0480 0000 2088          sub.l     #48,D0
+08000F0A  0030      
+08000F0C  2400      2089          move.l    D0,D2
+08000F0E  60BA      2090          bra       @doprint_getval_1
+                    2091   @doprint_getval_5:
+08000F10  2002      2092          move.l    D2,D0
+08000F12  4CDF 000C 2093          movem.l   (A7)+,D2/D3
+08000F16  4E5E      2094          unlk      A6
+08000F18  4E75      2095          rts
+                    2096   _doprint:
+08000F1A  4E56 FFCC 2097          link      A6,#-52
+08000F1E  48E7 3F3C 2098          movem.l   D2/D3/D4/D5/D6/D7/A2/A3/A4/A5,-(A7)
+08000F22  45EE 0008 2099          lea       8(A6),A2
+08000F26  47F9 0800 2100          lea       @doprint_copy.L,A3
+08000F2A  0E72      
+08000F2C  49F9 0800 2101          lea       _ultoa.L,A4
+08000F30  1654      
+08000F32  4286      2102          clr.l     D6
+                    2103   doprint_1:
+08000F34  206E 000C 2104          move.l    12(A6),A0
+08000F38  4A10      2105          tst.b     (A0)
+08000F3A  6700 05F0 2106          beq       doprint_3
+08000F3E  206E 000C 2107          move.l    12(A6),A0
+08000F42  1010      2108          move.b    (A0),D0
+08000F44  0C00 0025 2109          cmp.b     #37,D0
+08000F48  671C      2110          beq.s     doprint_4
+08000F4A  206E 000C 2111          move.l    12(A6),A0
+08000F4E  52AE 000C 2112          addq.l    #1,12(A6)
+08000F52  1210      2113          move.b    (A0),D1
+08000F54  4881      2114          ext.w     D1
+08000F56  48C1      2115          ext.l     D1
+08000F58  2F01      2116          move.l    D1,-(A7)
+08000F5A  2F0A      2117          move.l    A2,-(A7)
+08000F5C  4E93      2118          jsr       (A3)
+08000F5E  504F      2119          addq.w    #8,A7
+08000F60  5286      2120          addq.l    #1,D6
+08000F62  6000 05C4 2121          bra       doprint_2
+                    2122   doprint_4:
+08000F66  52AE 000C 2123          addq.l    #1,12(A6)
+08000F6A  422E FFD3 2124          clr.b     -45(A6)
+08000F6E  422E FFD2 2125          clr.b     -46(A6)
+08000F72  422E FFD0 2126          clr.b     -48(A6)
+08000F76  422E FFCF 2127          clr.b     -49(A6)
+08000F7A  422E FFCE 2128          clr.b     -50(A6)
+08000F7E  422E FFCD 2129          clr.b     -51(A6)
+08000F82  42AE FFFC 2130          clr.l     -4(A6)
+08000F86  7AFF      2131          moveq     #-1,D5
+08000F88  41EE FFDC 2132          lea       -36(A6),A0
+08000F8C  2608      2133          move.l    A0,D3
+08000F8E  2408      2134          move.l    A0,D2
+                    2135   doprint_6:
+08000F90  206E 000C 2136          move.l    12(A6),A0
+08000F94  1010      2137          move.b    (A0),D0
+08000F96  4880      2138          ext.w     D0
+08000F98  48C0      2139          ext.l     D0
+08000F9A  0C80 0000 2140          cmp.l     #43,D0
+08000F9E  002B      
+08000FA0  6730      2141          beq.s     doprint_12
+08000FA2  6E18      2142          bgt.s     doprint_15
+08000FA4  0C80 0000 2143          cmp.l     #35,D0
+08000FA8  0023      
+08000FAA  6700 003E 2144          beq       doprint_14
+08000FAE  6E00 0046 2145          bgt       doprint_9
+08000FB2  0C80 0000 2146          cmp.l     #32,D0
+08000FB6  0020      
+08000FB8  6724      2147          beq.s     doprint_13
+08000FBA  603A      2148          bra.s     doprint_9
+                    2149   doprint_15:
+08000FBC  0C80 0000 2150          cmp.l     #45,D0
+08000FC0  002D      
+08000FC2  6702      2151          beq.s     doprint_11
+08000FC4  6030      2152          bra.s     doprint_9
+                    2153   doprint_11:
+08000FC6  1D7C 0001 2154          move.b    #1,-51(A6)
+08000FCA  FFCD      
+08000FCC  52AE 000C 2155          addq.l    #1,12(A6)
+08000FD0  6026      2156          bra.s     doprint_7
+                    2157   doprint_12:
+08000FD2  1D7C 0001 2158          move.b    #1,-50(A6)
+08000FD6  FFCE      
+08000FD8  52AE 000C 2159          addq.l    #1,12(A6)
+08000FDC  601A      2160          bra.s     doprint_7
+                    2161   doprint_13:
+08000FDE  1D7C 0001 2162          move.b    #1,-49(A6)
+08000FE2  FFCF      
+08000FE4  52AE 000C 2163          addq.l    #1,12(A6)
+08000FE8  600E      2164          bra.s     doprint_7
+                    2165   doprint_14:
+08000FEA  1D7C 0001 2166          move.b    #1,-48(A6)
+08000FEE  FFD0      
+08000FF0  52AE 000C 2167          addq.l    #1,12(A6)
+08000FF4  6002      2168          bra.s     doprint_7
+                    2169   doprint_9:
+08000FF6  6002      2170          bra.s     doprint_8
+                    2171   doprint_7:
+08000FF8  6096      2172          bra       doprint_6
+                    2173   doprint_8:
+08000FFA  206E 000C 2174          move.l    12(A6),A0
+08000FFE  1010      2175          move.b    (A0),D0
+08001000  0C00 0030 2176          cmp.b     #48,D0
+08001004  660A      2177          bne.s     doprint_16
+08001006  52AE 000C 2178          addq.l    #1,12(A6)
+0800100A  1D7C 0001 2179          move.b    #1,-46(A6)
+0800100E  FFD2      
+                    2180   doprint_16:
+08001010  486E 0010 2181          pea       16(A6)
+08001014  486E 000C 2182          pea       12(A6)
+08001018  4EB9 0800 2183          jsr       @doprint_getval
+0800101C  0E9E      
+0800101E  504F      2184          addq.w    #8,A7
+08001020  2A40      2185          move.l    D0,A5
+08001022  206E 000C 2186          move.l    12(A6),A0
+08001026  1010      2187          move.b    (A0),D0
+08001028  0C00 002E 2188          cmp.b     #46,D0
+0800102C  6616      2189          bne.s     doprint_18
+0800102E  52AE 000C 2190          addq.l    #1,12(A6)
+08001032  486E 0010 2191          pea       16(A6)
+08001036  486E 000C 2192          pea       12(A6)
+0800103A  4EB9 0800 2193          jsr       @doprint_getval
+0800103E  0E9E      
+08001040  504F      2194          addq.w    #8,A7
+08001042  2A00      2195          move.l    D0,D5
+                    2196   doprint_18:
+08001044  206E 000C 2197          move.l    12(A6),A0
+08001048  1010      2198          move.b    (A0),D0
+0800104A  0C00 006C 2199          cmp.b     #108,D0
+0800104E  660A      2200          bne.s     doprint_20
+08001050  52AE 000C 2201          addq.l    #1,12(A6)
+08001054  1D7C 0001 2202          move.b    #1,-45(A6)
+08001058  FFD3      
+                    2203   doprint_20:
+0800105A  206E 000C 2204          move.l    12(A6),A0
+0800105E  1010      2205          move.b    (A0),D0
+08001060  4880      2206          ext.w     D0
+08001062  48C0      2207          ext.l     D0
+08001064  0C80 0000 2208          cmp.l     #111,D0
+08001068  006F      
+0800106A  6700 00D8 2209          beq       doprint_27
+0800106E  6E34      2210          bgt.s     doprint_33
+08001070  0C80 0000 2211          cmp.l     #100,D0
+08001074  0064      
+08001076  6700 0054 2212          beq       doprint_24
+0800107A  6E1C      2213          bgt.s     doprint_34
+0800107C  0C80 0000 2214          cmp.l     #99,D0
+08001080  0063      
+08001082  6700 0130 2215          beq       doprint_30
+08001086  6E00 0174 2216          bgt       doprint_22
+0800108A  0C80 0000 2217          cmp.l     #88,D0
+0800108E  0058      
+08001090  6700 00EA 2218          beq       doprint_28
+08001094  6000 0166 2219          bra       doprint_22
+                    2220   doprint_34:
+08001098  0C80 0000 2221          cmp.l     #105,D0
+0800109C  0069      
+0800109E  672C      2222          beq.s     doprint_24
+080010A0  6000 015A 2223          bra       doprint_22
+                    2224   doprint_33:
+080010A4  0C80 0000 2225          cmp.l     #117,D0
+080010A8  0075      
+080010AA  6700 0060 2226          beq       doprint_26
+080010AE  6E0E      2227          bgt.s     doprint_35
+080010B0  0C80 0000 2228          cmp.l     #115,D0
+080010B4  0073      
+080010B6  6700 0124 2229          beq       doprint_31
+080010BA  6000 0140 2230          bra       doprint_22
+                    2231   doprint_35:
+080010BE  0C80 0000 2232          cmp.l     #120,D0
+080010C2  0078      
+080010C4  6700 00B6 2233          beq       doprint_28
+080010C8  6000 0132 2234          bra       doprint_22
+                    2235   doprint_24:
+080010CC  4A2E FFD3 2236          tst.b     -45(A6)
+080010D0  671C      2237          beq.s     doprint_36
+080010D2  4878 000A 2238          pea       10
+080010D6  2F03      2239          move.l    D3,-(A7)
+080010D8  206E 0010 2240          move.l    16(A6),A0
+080010DC  58AE 0010 2241          addq.l    #4,16(A6)
+080010E0  2F10      2242          move.l    (A0),-(A7)
+080010E2  4EB9 0800 2243          jsr       _ltoa
+080010E6  15CC      
+080010E8  DEFC 000C 2244          add.w     #12,A7
+080010EC  601A      2245          bra.s     doprint_37
+                    2246   doprint_36:
+080010EE  4878 000A 2247          pea       10
+080010F2  2F03      2248          move.l    D3,-(A7)
+080010F4  206E 0010 2249          move.l    16(A6),A0
+080010F8  58AE 0010 2250          addq.l    #4,16(A6)
+080010FC  2F10      2251          move.l    (A0),-(A7)
+080010FE  4EB9 0800 2252          jsr       _ltoa
+08001102  15CC      
+08001104  DEFC 000C 2253          add.w     #12,A7
+                    2254   doprint_37:
+08001108  6000 0100 2255          bra       doprint_23
+                    2256   doprint_26:
+0800110C  4A2E FFD3 2257          tst.b     -45(A6)
+08001110  6718      2258          beq.s     doprint_38
+08001112  4878 000A 2259          pea       10
+08001116  2F03      2260          move.l    D3,-(A7)
+08001118  206E 0010 2261          move.l    16(A6),A0
+0800111C  58AE 0010 2262          addq.l    #4,16(A6)
+08001120  2F10      2263          move.l    (A0),-(A7)
+08001122  4E94      2264          jsr       (A4)
+08001124  DEFC 000C 2265          add.w     #12,A7
+08001128  6016      2266          bra.s     doprint_39
+                    2267   doprint_38:
+0800112A  4878 000A 2268          pea       10
+0800112E  2F03      2269          move.l    D3,-(A7)
+08001130  206E 0010 2270          move.l    16(A6),A0
+08001134  58AE 0010 2271          addq.l    #4,16(A6)
+08001138  2F10      2272          move.l    (A0),-(A7)
+0800113A  4E94      2273          jsr       (A4)
+0800113C  DEFC 000C 2274          add.w     #12,A7
+                    2275   doprint_39:
+08001140  6000 00C8 2276          bra       doprint_23
+                    2277   doprint_27:
+08001144  4A2E FFD3 2278          tst.b     -45(A6)
+08001148  6718      2279          beq.s     doprint_40
+0800114A  4878 0008 2280          pea       8
+0800114E  2F03      2281          move.l    D3,-(A7)
+08001150  206E 0010 2282          move.l    16(A6),A0
+08001154  58AE 0010 2283          addq.l    #4,16(A6)
+08001158  2F10      2284          move.l    (A0),-(A7)
+0800115A  4E94      2285          jsr       (A4)
+0800115C  DEFC 000C 2286          add.w     #12,A7
+08001160  6016      2287          bra.s     doprint_41
+                    2288   doprint_40:
+08001162  4878 0008 2289          pea       8
+08001166  2F03      2290          move.l    D3,-(A7)
+08001168  206E 0010 2291          move.l    16(A6),A0
+0800116C  58AE 0010 2292          addq.l    #4,16(A6)
+08001170  2F10      2293          move.l    (A0),-(A7)
+08001172  4E94      2294          jsr       (A4)
+08001174  DEFC 000C 2295          add.w     #12,A7
+                    2296   doprint_41:
+08001178  6000 0090 2297          bra       doprint_23
+                    2298   doprint_28:
+0800117C  4A2E FFD3 2299          tst.b     -45(A6)
+08001180  6718      2300          beq.s     doprint_42
+08001182  4878 0010 2301          pea       16
+08001186  2F03      2302          move.l    D3,-(A7)
+08001188  206E 0010 2303          move.l    16(A6),A0
+0800118C  58AE 0010 2304          addq.l    #4,16(A6)
+08001190  2F10      2305          move.l    (A0),-(A7)
+08001192  4E94      2306          jsr       (A4)
+08001194  DEFC 000C 2307          add.w     #12,A7
+08001198  6016      2308          bra.s     doprint_43
+                    2309   doprint_42:
+0800119A  4878 0010 2310          pea       16
+0800119E  2F03      2311          move.l    D3,-(A7)
+080011A0  206E 0010 2312          move.l    16(A6),A0
+080011A4  58AE 0010 2313          addq.l    #4,16(A6)
+080011A8  2F10      2314          move.l    (A0),-(A7)
+080011AA  4E94      2315          jsr       (A4)
+080011AC  DEFC 000C 2316          add.w     #12,A7
+                    2317   doprint_43:
+080011B0  6000 0058 2318          bra       doprint_23
+                    2319   doprint_30:
+080011B4  206E 0010 2320          move.l    16(A6),A0
+080011B8  58AE 0010 2321          addq.l    #4,16(A6)
+080011BC  2010      2322          move.l    (A0),D0
+080011BE  2042      2323          move.l    D2,A0
+080011C0  5282      2324          addq.l    #1,D2
+080011C2  1080      2325          move.b    D0,(A0)
+080011C4  2042      2326          move.l    D2,A0
+080011C6  4210      2327          clr.b     (A0)
+080011C8  200D      2328          move.l    A5,D0
+080011CA  6704      2329          beq.s     doprint_44
+080011CC  200D      2330          move.l    A5,D0
+080011CE  6006      2331          bra.s     doprint_45
+                    2332   doprint_44:
+080011D0  7001      2333          moveq     #1,D0
+080011D2  4880      2334          ext.w     D0
+080011D4  48C0      2335          ext.l     D0
+                    2336   doprint_45:
+080011D6  2A00      2337          move.l    D0,D5
+080011D8  6000 0030 2338          bra       doprint_23
+                    2339   doprint_31:
+080011DC  206E 0010 2340          move.l    16(A6),A0
+080011E0  58AE 0010 2341          addq.l    #4,16(A6)
+080011E4  2610      2342          move.l    (A0),D3
+080011E6  0C85 FFFF 2343          cmp.l     #-1,D5
+080011EA  FFFF      
+080011EC  660C      2344          bne.s     doprint_46
+080011EE  2F03      2345          move.l    D3,-(A7)
+080011F0  4EB9 0800 2346          jsr       _strlen
+080011F4  175A      
+080011F6  584F      2347          addq.w    #4,A7
+080011F8  2A00      2348          move.l    D0,D5
+                    2349   doprint_46:
+080011FA  600E      2350          bra.s     doprint_23
+                    2351   doprint_22:
+080011FC  206E 000C 2352          move.l    12(A6),A0
+08001200  2242      2353          move.l    D2,A1
+08001202  5282      2354          addq.l    #1,D2
+08001204  1290      2355          move.b    (A0),(A1)
+08001206  2042      2356          move.l    D2,A0
+08001208  4210      2357          clr.b     (A0)
+                    2358   doprint_23:
+0800120A  2F03      2359          move.l    D3,-(A7)
+0800120C  4EB9 0800 2360          jsr       _strlen
+08001210  175A      
+08001212  584F      2361          addq.w    #4,A7
+08001214  1800      2362          move.b    D0,D4
+08001216  206E 000C 2363          move.l    12(A6),A0
+0800121A  1010      2364          move.b    (A0),D0
+0800121C  0C00 0073 2365          cmp.b     #115,D0
+08001220  661C      2366          bne.s     doprint_48
+08001222  0C85 0000 2367          cmp.l     #0,D5
+08001226  0000      
+08001228  6D14      2368          blt.s     doprint_48
+0800122A  4884      2369          ext.w     D4
+0800122C  48C4      2370          ext.l     D4
+0800122E  B885      2371          cmp.l     D5,D4
+08001230  6F04      2372          ble.s     doprint_50
+08001232  2005      2373          move.l    D5,D0
+08001234  6006      2374          bra.s     doprint_51
+                    2375   doprint_50:
+08001236  1004      2376          move.b    D4,D0
+08001238  4880      2377          ext.w     D0
+0800123A  48C0      2378          ext.l     D0
+                    2379   doprint_51:
+0800123C  1800      2380          move.b    D0,D4
+                    2381   doprint_48:
+0800123E  206E 000C 2382          move.l    12(A6),A0
+08001242  1010      2383          move.b    (A0),D0
+08001244  0C00 0058 2384          cmp.b     #88,D0
+08001248  6600 0028 2385          bne       doprint_56
+0800124C  41EE FFDC 2386          lea       -36(A6),A0
+08001250  2408      2387          move.l    A0,D2
+                    2388   doprint_54:
+08001252  2042      2389          move.l    D2,A0
+08001254  4A10      2390          tst.b     (A0)
+08001256  671A      2391          beq.s     doprint_56
+08001258  2042      2392          move.l    D2,A0
+0800125A  1210      2393          move.b    (A0),D1
+0800125C  4881      2394          ext.w     D1
+0800125E  48C1      2395          ext.l     D1
+08001260  2F01      2396          move.l    D1,-(A7)
+08001262  4EB9 0800 2397          jsr       _toupper
+08001266  179C      
+08001268  584F      2398          addq.w    #4,A7
+0800126A  2042      2399          move.l    D2,A0
+0800126C  1080      2400          move.b    D0,(A0)
+0800126E  5282      2401          addq.l    #1,D2
+08001270  60E0      2402          bra       doprint_54
+                    2403   doprint_56:
+08001272  7E00      2404          moveq     #0,D7
+08001274  41EE FFD4 2405          lea       -44(A6),A0
+08001278  2408      2406          move.l    A0,D2
+0800127A  206E 000C 2407          move.l    12(A6),A0
+0800127E  1010      2408          move.b    (A0),D0
+08001280  0C00 0064 2409          cmp.b     #100,D0
+08001284  670E      2410          beq.s     doprint_59
+08001286  206E 000C 2411          move.l    12(A6),A0
+0800128A  1010      2412          move.b    (A0),D0
+0800128C  0C00 0069 2413          cmp.b     #105,D0
+08001290  6600 0068 2414          bne       doprint_65
+                    2415   doprint_59:
+08001294  102E FFCE 2416          move.b    -50(A6),D0
+08001298  4880      2417          ext.w     D0
+0800129A  48C0      2418          ext.l     D0
+0800129C  4A80      2419          tst.l     D0
+0800129E  660C      2420          bne.s     doprint_62
+080012A0  2043      2421          move.l    D3,A0
+080012A2  1010      2422          move.b    (A0),D0
+080012A4  0C00 002D 2423          cmp.b     #45,D0
+080012A8  6600 0028 2424          bne       doprint_60
+                    2425   doprint_62:
+080012AC  2043      2426          move.l    D3,A0
+080012AE  1010      2427          move.b    (A0),D0
+080012B0  0C00 002D 2428          cmp.b     #45,D0
+080012B4  660E      2429          bne.s     doprint_63
+080012B6  2043      2430          move.l    D3,A0
+080012B8  5283      2431          addq.l    #1,D3
+080012BA  2242      2432          move.l    D2,A1
+080012BC  5282      2433          addq.l    #1,D2
+080012BE  1290      2434          move.b    (A0),(A1)
+080012C0  5304      2435          subq.b    #1,D4
+080012C2  6008      2436          bra.s     doprint_64
+                    2437   doprint_63:
+080012C4  2042      2438          move.l    D2,A0
+080012C6  5282      2439          addq.l    #1,D2
+080012C8  10BC 002B 2440          move.b    #43,(A0)
+                    2441   doprint_64:
+080012CC  5287      2442          addq.l    #1,D7
+080012CE  6000 002A 2443          bra       doprint_65
+                    2444   doprint_60:
+080012D2  4A2E FFCF 2445          tst.b     -49(A6)
+080012D6  6722      2446          beq.s     doprint_65
+080012D8  2043      2447          move.l    D3,A0
+080012DA  1010      2448          move.b    (A0),D0
+080012DC  0C00 002D 2449          cmp.b     #45,D0
+080012E0  660E      2450          bne.s     doprint_67
+080012E2  2043      2451          move.l    D3,A0
+080012E4  5283      2452          addq.l    #1,D3
+080012E6  2242      2453          move.l    D2,A1
+080012E8  5282      2454          addq.l    #1,D2
+080012EA  1290      2455          move.b    (A0),(A1)
+080012EC  5304      2456          subq.b    #1,D4
+080012EE  6008      2457          bra.s     doprint_68
+                    2458   doprint_67:
+080012F0  2042      2459          move.l    D2,A0
+080012F2  5282      2460          addq.l    #1,D2
+080012F4  10BC 0020 2461          move.b    #32,(A0)
+                    2462   doprint_68:
+080012F8  5287      2463          addq.l    #1,D7
+                    2464   doprint_65:
+080012FA  4A2E FFD0 2465          tst.b     -48(A6)
+080012FE  6700 005A 2466          beq       doprint_77
+08001302  206E 000C 2467          move.l    12(A6),A0
+08001306  1010      2468          move.b    (A0),D0
+08001308  4880      2469          ext.w     D0
+0800130A  48C0      2470          ext.l     D0
+0800130C  0C80 0000 2471          cmp.l     #111,D0
+08001310  006F      
+08001312  671A      2472          beq.s     doprint_73
+08001314  6E0C      2473          bgt.s     doprint_76
+08001316  0C80 0000 2474          cmp.l     #88,D0
+0800131A  0058      
+0800131C  6710      2475          beq.s     doprint_73
+0800131E  6000 003A 2476          bra       doprint_77
+                    2477   doprint_76:
+08001322  0C80 0000 2478          cmp.l     #120,D0
+08001326  0078      
+08001328  6704      2479          beq.s     doprint_73
+0800132A  6000 002E 2480          bra       doprint_77
+                    2481   doprint_73:
+0800132E  2042      2482          move.l    D2,A0
+08001330  5282      2483          addq.l    #1,D2
+08001332  10BC 0030 2484          move.b    #48,(A0)
+08001336  5287      2485          addq.l    #1,D7
+08001338  206E 000C 2486          move.l    12(A6),A0
+0800133C  1010      2487          move.b    (A0),D0
+0800133E  0C00 0078 2488          cmp.b     #120,D0
+08001342  670C      2489          beq.s     doprint_79
+08001344  206E 000C 2490          move.l    12(A6),A0
+08001348  1010      2491          move.b    (A0),D0
+0800134A  0C00 0058 2492          cmp.b     #88,D0
+0800134E  660A      2493          bne.s     doprint_77
+                    2494   doprint_79:
+08001350  2042      2495          move.l    D2,A0
+08001352  5282      2496          addq.l    #1,D2
+08001354  10BC 0078 2497          move.b    #120,(A0)
+08001358  5287      2498          addq.l    #1,D7
+                    2499   doprint_77:
+0800135A  2042      2500          move.l    D2,A0
+0800135C  4210      2501          clr.b     (A0)
+0800135E  206E 000C 2502          move.l    12(A6),A0
+08001362  1010      2503          move.b    (A0),D0
+08001364  4880      2504          ext.w     D0
+08001366  48C0      2505          ext.l     D0
+08001368  0C80 0000 2506          cmp.l     #105,D0
+0800136C  0069      
+0800136E  6700 0076 2507          beq       doprint_82
+08001372  6E42      2508          bgt.s     doprint_93
+08001374  0C80 0000 2509          cmp.l     #99,D0
+08001378  0063      
+0800137A  6700 0084 2510          beq       doprint_96
+0800137E  6E1C      2511          bgt.s     doprint_94
+08001380  0C80 0000 2512          cmp.l     #88,D0
+08001384  0058      
+08001386  6700 005E 2513          beq       doprint_82
+0800138A  6E00 0184 2514          bgt       doprint_80
+0800138E  0C80 0000 2515          cmp.l     #69,D0
+08001392  0045      
+08001394  6700 0050 2516          beq       doprint_82
+08001398  6000 0176 2517          bra       doprint_80
+                    2518   doprint_94:
+0800139C  0C80 0000 2519          cmp.l     #101,D0
+080013A0  0065      
+080013A2  6700 0042 2520          beq       doprint_82
+080013A6  6E00 0168 2521          bgt       doprint_80
+080013AA  0C80 0000 2522          cmp.l     #100,D0
+080013AE  0064      
+080013B0  6734      2523          beq.s     doprint_82
+080013B2  6000 015C 2524          bra       doprint_80
+                    2525   doprint_93:
+080013B6  0C80 0000 2526          cmp.l     #117,D0
+080013BA  0075      
+080013BC  6728      2527          beq.s     doprint_82
+080013BE  6E1A      2528          bgt.s     doprint_95
+080013C0  0C80 0000 2529          cmp.l     #115,D0
+080013C4  0073      
+080013C6  6700 0038 2530          beq       doprint_96
+080013CA  6E00 0144 2531          bgt       doprint_80
+080013CE  0C80 0000 2532          cmp.l     #111,D0
+080013D2  006F      
+080013D4  6710      2533          beq.s     doprint_82
+080013D6  6000 0138 2534          bra       doprint_80
+                    2535   doprint_95:
+080013DA  0C80 0000 2536          cmp.l     #120,D0
+080013DE  0078      
+080013E0  6704      2537          beq.s     doprint_82
+080013E2  6000 012C 2538          bra       doprint_80
+                    2539   doprint_82:
+080013E6  4A2E FFD2 2540          tst.b     -46(A6)
+080013EA  6714      2541          beq.s     doprint_96
+080013EC  4A2E FFCD 2542          tst.b     -51(A6)
+080013F0  660E      2543          bne.s     doprint_96
+080013F2  200D      2544          move.l    A5,D0
+080013F4  9087      2545          sub.l     D7,D0
+080013F6  4884      2546          ext.w     D4
+080013F8  48C4      2547          ext.l     D4
+080013FA  9084      2548          sub.l     D4,D0
+080013FC  2D40 FFFC 2549          move.l    D0,-4(A6)
+                    2550   doprint_96:
+08001400  202E FFFC 2551          move.l    -4(A6),D0
+08001404  0C80 0000 2552          cmp.l     #0,D0
+08001408  0000      
+0800140A  6C04      2553          bge.s     doprint_98
+0800140C  42AE FFFC 2554          clr.l     -4(A6)
+                    2555   doprint_98:
+08001410  4A2E FFCD 2556          tst.b     -51(A6)
+08001414  6600 0030 2557          bne       doprint_104
+08001418  1004      2558          move.b    D4,D0
+0800141A  4880      2559          ext.w     D0
+0800141C  48C0      2560          ext.l     D0
+0800141E  D0AE FFFC 2561          add.l     -4(A6),D0
+08001422  D087      2562          add.l     D7,D0
+08001424  1D40 FFD1 2563          move.b    D0,-47(A6)
+                    2564   doprint_102:
+08001428  102E FFD1 2565          move.b    -47(A6),D0
+0800142C  4880      2566          ext.w     D0
+0800142E  48C0      2567          ext.l     D0
+08001430  220D      2568          move.l    A5,D1
+08001432  534D      2569          subq.w    #1,A5
+08001434  B081      2570          cmp.l     D1,D0
+08001436  6C0E      2571          bge.s     doprint_104
+08001438  4878 0020 2572          pea       32
+0800143C  2F0A      2573          move.l    A2,-(A7)
+0800143E  4E93      2574          jsr       (A3)
+08001440  504F      2575          addq.w    #8,A7
+08001442  5286      2576          addq.l    #1,D6
+08001444  60E2      2577          bra       doprint_102
+                    2578   doprint_104:
+08001446  41EE FFD4 2579          lea       -44(A6),A0
+0800144A  2408      2580          move.l    A0,D2
+                    2581   doprint_105:
+0800144C  2042      2582          move.l    D2,A0
+0800144E  4A10      2583          tst.b     (A0)
+08001450  6716      2584          beq.s     doprint_107
+08001452  2042      2585          move.l    D2,A0
+08001454  5282      2586          addq.l    #1,D2
+08001456  1210      2587          move.b    (A0),D1
+08001458  4881      2588          ext.w     D1
+0800145A  48C1      2589          ext.l     D1
+0800145C  2F01      2590          move.l    D1,-(A7)
+0800145E  2F0A      2591          move.l    A2,-(A7)
+08001460  4E93      2592          jsr       (A3)
+08001462  504F      2593          addq.w    #8,A7
+08001464  5286      2594          addq.l    #1,D6
+08001466  60E4      2595          bra       doprint_105
+                    2596   doprint_107:
+08001468  202E FFFC 2597          move.l    -4(A6),D0
+0800146C  1D40 FFD1 2598          move.b    D0,-47(A6)
+                    2599   doprint_108:
+08001470  102E FFD1 2600          move.b    -47(A6),D0
+08001474  532E FFD1 2601          subq.b    #1,-47(A6)
+08001478  4A00      2602          tst.b     D0
+0800147A  670E      2603          beq.s     doprint_110
+0800147C  4878 0030 2604          pea       48
+08001480  2F0A      2605          move.l    A2,-(A7)
+08001482  4E93      2606          jsr       (A3)
+08001484  504F      2607          addq.w    #8,A7
+08001486  5286      2608          addq.l    #1,D6
+08001488  60E6      2609          bra       doprint_108
+                    2610   doprint_110:
+0800148A  2043      2611          move.l    D3,A0
+0800148C  4A10      2612          tst.b     (A0)
+0800148E  6700 0048 2613          beq       doprint_113
+08001492  206E 000C 2614          move.l    12(A6),A0
+08001496  1010      2615          move.b    (A0),D0
+08001498  4880      2616          ext.w     D0
+0800149A  48C0      2617          ext.l     D0
+0800149C  0C80 0000 2618          cmp.l     #115,D0
+080014A0  0073      
+080014A2  670C      2619          beq.s     doprint_116
+080014A4  6E18      2620          bgt.s     doprint_119
+080014A6  0C80 0000 2621          cmp.l     #99,D0
+080014AA  0063      
+080014AC  6702      2622          beq.s     doprint_116
+080014AE  600E      2623          bra.s     doprint_119
+                    2624   doprint_116:
+080014B0  2005      2625          move.l    D5,D0
+080014B2  5385      2626          subq.l    #1,D5
+080014B4  0C80 0000 2627          cmp.l     #0,D0
+080014B8  0000      
+080014BA  6E02      2628          bgt.s     doprint_119
+080014BC  6016      2629          bra.s     doprint_115
+                    2630   doprint_119:
+080014BE  2043      2631          move.l    D3,A0
+080014C0  5283      2632          addq.l    #1,D3
+080014C2  1210      2633          move.b    (A0),D1
+080014C4  4881      2634          ext.w     D1
+080014C6  48C1      2635          ext.l     D1
+080014C8  2F01      2636          move.l    D1,-(A7)
+080014CA  2F0A      2637          move.l    A2,-(A7)
+080014CC  4E93      2638          jsr       (A3)
+080014CE  504F      2639          addq.w    #8,A7
+080014D0  5286      2640          addq.l    #1,D6
+080014D2  6002      2641          bra.s     doprint_112
+                    2642   doprint_115:
+080014D4  6002      2643          bra.s     doprint_113
+                    2644   doprint_112:
+080014D6  60B2      2645          bra       doprint_110
+                    2646   doprint_113:
+080014D8  4A2E FFCD 2647          tst.b     -51(A6)
+080014DC  6700 0030 2648          beq       doprint_125
+080014E0  1004      2649          move.b    D4,D0
+080014E2  4880      2650          ext.w     D0
+080014E4  48C0      2651          ext.l     D0
+080014E6  D0AE FFFC 2652          add.l     -4(A6),D0
+080014EA  D087      2653          add.l     D7,D0
+080014EC  1D40 FFD1 2654          move.b    D0,-47(A6)
+                    2655   doprint_123:
+080014F0  102E FFD1 2656          move.b    -47(A6),D0
+080014F4  4880      2657          ext.w     D0
+080014F6  48C0      2658          ext.l     D0
+080014F8  220D      2659          move.l    A5,D1
+080014FA  534D      2660          subq.w    #1,A5
+080014FC  B081      2661          cmp.l     D1,D0
+080014FE  6C0E      2662          bge.s     doprint_125
+08001500  4878 0020 2663          pea       32
+08001504  2F0A      2664          move.l    A2,-(A7)
+08001506  4E93      2665          jsr       (A3)
+08001508  504F      2666          addq.w    #8,A7
+0800150A  5386      2667          subq.l    #1,D6
+0800150C  60E2      2668          bra       doprint_123
+                    2669   doprint_125:
+0800150E  6014      2670          bra.s     doprint_81
+                    2671   doprint_80:
+08001510  206E 000C 2672          move.l    12(A6),A0
+08001514  1210      2673          move.b    (A0),D1
+08001516  4881      2674          ext.w     D1
+08001518  48C1      2675          ext.l     D1
+0800151A  2F01      2676          move.l    D1,-(A7)
+0800151C  2F0A      2677          move.l    A2,-(A7)
+0800151E  4E93      2678          jsr       (A3)
+08001520  504F      2679          addq.w    #8,A7
+08001522  5286      2680          addq.l    #1,D6
+                    2681   doprint_81:
+08001524  52AE 000C 2682          addq.l    #1,12(A6)
+                    2683   doprint_2:
+08001528  6000 FA0A 2684          bra       doprint_1
+                    2685   doprint_3:
+0800152C  4A92      2686          tst.l     (A2)
+0800152E  6710      2687          beq.s     doprint_126
+08001530  4201      2688          clr.b     D1
+08001532  C2BC 0000 2689          and.l     #255,D1
+08001536  00FF      
+08001538  2F01      2690          move.l    D1,-(A7)
+0800153A  2F0A      2691          move.l    A2,-(A7)
+0800153C  4E93      2692          jsr       (A3)
+0800153E  504F      2693          addq.w    #8,A7
+                    2694   doprint_126:
+08001540  2006      2695          move.l    D6,D0
+08001542  4CDF 3CFC 2696          movem.l   (A7)+,D2/D3/D4/D5/D6/D7/A2/A3/A4/A5
+08001546  4E5E      2697          unlk      A6
+08001548  4E75      2698          rts
+                    2699   @itoa_convert:
+0800154A  4E56 0000 2700          link      A6,#0
+0800154E  48E7 3C00 2701          movem.l   D2/D3/D4/D5,-(A7)
+08001552  242E 0008 2702          move.l    8(A6),D2
+08001556  262E 0010 2703          move.l    16(A6),D3
+0800155A  2A2E 000C 2704          move.l    12(A6),D5
+0800155E  2F05      2705          move.l    D5,-(A7)
+08001560  2F03      2706          move.l    D3,-(A7)
+08001562  4EB9 0800 2707          jsr       ULDIV
+08001566  0D64      
+08001568  202F 0004 2708          move.l    4(A7),D0
+0800156C  504F      2709          addq.w    #8,A7
+0800156E  2800      2710          move.l    D0,D4
+08001570  BA83      2711          cmp.l     D3,D5
+08001572  6520      2712          blo.s     @itoa_convert_1
+08001574  2F03      2713          move.l    D3,-(A7)
+08001576  2F05      2714          move.l    D5,-(A7)
+08001578  2F03      2715          move.l    D3,-(A7)
+0800157A  4EB9 0800 2716          jsr       ULDIV
+0800157E  0D64      
+08001580  2217      2717          move.l    (A7),D1
+08001582  504F      2718          addq.w    #8,A7
+08001584  2F01      2719          move.l    D1,-(A7)
+08001586  2F02      2720          move.l    D2,-(A7)
+08001588  4EB9 0800 2721          jsr       @itoa_convert
+0800158C  154A      
+0800158E  DEFC 000C 2722          add.w     #12,A7
+08001592  2400      2723          move.l    D0,D2
+                    2724   @itoa_convert_1:
+08001594  0C84 0000 2725          cmp.l     #9,D4
+08001598  0009      
+0800159A  6E0E      2726          bgt.s     @itoa_convert_3
+0800159C  2004      2727          move.l    D4,D0
+0800159E  7230      2728          moveq     #48,D1
+080015A0  C2BC 0000 2729          and.l     #255,D1
+080015A4  00FF      
+080015A6  D081      2730          add.l     D1,D0
+080015A8  6012      2731          bra.s     @itoa_convert_4
+                    2732   @itoa_convert_3:
+080015AA  2004      2733          move.l    D4,D0
+080015AC  7261      2734          moveq     #97,D1
+080015AE  C2BC 0000 2735          and.l     #255,D1
+080015B2  00FF      
+080015B4  D081      2736          add.l     D1,D0
+080015B6  0480 0000 2737          sub.l     #10,D0
+080015BA  000A      
+                    2738   @itoa_convert_4:
+080015BC  2042      2739          move.l    D2,A0
+080015BE  1080      2740          move.b    D0,(A0)
+080015C0  2002      2741          move.l    D2,D0
+080015C2  5280      2742          addq.l    #1,D0
+080015C4  4CDF 003C 2743          movem.l   (A7)+,D2/D3/D4/D5
+080015C8  4E5E      2744          unlk      A6
+080015CA  4E75      2745          rts
+                    2746   _ltoa:
+080015CC  4E56 0000 2747          link      A6,#0
+080015D0  48E7 3C00 2748          movem.l   D2/D3/D4/D5,-(A7)
+080015D4  242E 0008 2749          move.l    8(A6),D2
+080015D8  262E 000C 2750          move.l    12(A6),D3
+080015DC  2A2E 0010 2751          move.l    16(A6),D5
+080015E0  2803      2752          move.l    D3,D4
+080015E2  0C85 0000 2753          cmp.l     #2,D5
+080015E6  0002      
+080015E8  6D08      2754          blt.s     ltoa_3
+080015EA  0C85 0000 2755          cmp.l     #36,D5
+080015EE  0024      
+080015F0  6F06      2756          ble.s     ltoa_1
+                    2757   ltoa_3:
+080015F2  2003      2758          move.l    D3,D0
+080015F4  6000 0056 2759          bra       ltoa_4
+                    2760   ltoa_1:
+080015F8  0C85 0000 2761          cmp.l     #10,D5
+080015FC  000A      
+080015FE  6600 0034 2762          bne       ltoa_5
+08001602  0C82 0000 2763          cmp.l     #0,D2
+08001606  0000      
+08001608  6C2A      2764          bge.s     ltoa_5
+0800160A  2002      2765          move.l    D2,D0
+0800160C  4480      2766          neg.l     D0
+0800160E  2400      2767          move.l    D0,D2
+08001610  0C82 0000 2768          cmp.l     #0,D2
+08001614  0000      
+08001616  6C14      2769          bge.s     ltoa_7
+08001618  4879 0800 2770          pea       @itoa_1.L
+0800161C  1B9A      
+0800161E  2F03      2771          move.l    D3,-(A7)
+08001620  4EB9 0800 2772          jsr       _strcpy
+08001624  17B8      
+08001626  504F      2773          addq.w    #8,A7
+08001628  2003      2774          move.l    D3,D0
+0800162A  6020      2775          bra.s     ltoa_4
+                    2776   ltoa_7:
+0800162C  2044      2777          move.l    D4,A0
+0800162E  5284      2778          addq.l    #1,D4
+08001630  10BC 002D 2779          move.b    #45,(A0)
+                    2780   ltoa_5:
+08001634  2F05      2781          move.l    D5,-(A7)
+08001636  2F02      2782          move.l    D2,-(A7)
+08001638  2F04      2783          move.l    D4,-(A7)
+0800163A  4EB9 0800 2784          jsr       @itoa_convert
+0800163E  154A      
+08001640  DEFC 000C 2785          add.w     #12,A7
+08001644  2800      2786          move.l    D0,D4
+08001646  2044      2787          move.l    D4,A0
+08001648  4210      2788          clr.b     (A0)
+0800164A  2003      2789          move.l    D3,D0
+                    2790   ltoa_4:
+0800164C  4CDF 003C 2791          movem.l   (A7)+,D2/D3/D4/D5
+08001650  4E5E      2792          unlk      A6
+08001652  4E75      2793          rts
+                    2794   _ultoa:
+08001654  4E56 0000 2795          link      A6,#0
+08001658  48E7 3800 2796          movem.l   D2/D3/D4,-(A7)
+0800165C  262E 0010 2797          move.l    16(A6),D3
+08001660  282E 000C 2798          move.l    12(A6),D4
+08001664  2404      2799          move.l    D4,D2
+08001666  0C83 0000 2800          cmp.l     #2,D3
+0800166A  0002      
+0800166C  6D08      2801          blt.s     ultoa_3
+0800166E  0C83 0000 2802          cmp.l     #36,D3
+08001672  0024      
+08001674  6F04      2803          ble.s     ultoa_1
+                    2804   ultoa_3:
+08001676  2004      2805          move.l    D4,D0
+08001678  601A      2806          bra.s     ultoa_4
+                    2807   ultoa_1:
+0800167A  2F03      2808          move.l    D3,-(A7)
+0800167C  2F2E 0008 2809          move.l    8(A6),-(A7)
+08001680  2F02      2810          move.l    D2,-(A7)
+08001682  4EB9 0800 2811          jsr       @itoa_convert
+08001686  154A      
+08001688  DEFC 000C 2812          add.w     #12,A7
+0800168C  2400      2813          move.l    D0,D2
+0800168E  2042      2814          move.l    D2,A0
+08001690  4210      2815          clr.b     (A0)
+08001692  2004      2816          move.l    D4,D0
+                    2817   ultoa_4:
+08001694  4CDF 001C 2818          movem.l   (A7)+,D2/D3/D4
+08001698  4E5E      2819          unlk      A6
+0800169A  4E75      2820          rts
+                    2821   _itoa:
+0800169C  4E56 0000 2822          link      A6,#0
+080016A0  2F2E 0010 2823          move.l    16(A6),-(A7)
+080016A4  2F2E 000C 2824          move.l    12(A6),-(A7)
+080016A8  2F2E 0008 2825          move.l    8(A6),-(A7)
+080016AC  4EB9 0800 2826          jsr       _ltoa
+080016B0  15CC      
+080016B2  DEFC 000C 2827          add.w     #12,A7
+080016B6  4E5E      2828          unlk      A6
+080016B8  4E75      2829          rts
+                    2830   ULMUL:
+080016BA  4E56 0000 2831          link    A6,#0
+080016BE  48E7 C000 2832          movem.l D0/D1,-(A7)
+080016C2  222E 0008 2833          move.l  8(A6),D1
+080016C6  202E 000C 2834          move.l  12(A6),D0
+080016CA  602C      2835          bra.s   lmul_3
+                    2836   LMUL:
+080016CC  4E56 0000 2837          link    A6,#0
+080016D0  48E7 C000 2838          movem.l D0/D1,-(A7)
+080016D4  222E 0008 2839          move.l  8(A6),D1
+080016D8  202E 000C 2840          move.l  12(A6),D0
+080016DC  4A80      2841          tst.l   D0
+080016DE  6A0A      2842          bpl.s   lmul_1
+080016E0  4480      2843          neg.l   D0
+080016E2  4A81      2844          tst.l   D1
+080016E4  6A0A      2845          bpl.s   lmul_2
+080016E6  4481      2846          neg.l   D1
+080016E8  600E      2847          bra.s   lmul_3
+                    2848   lmul_1:
+080016EA  4A81      2849          tst.l   D1
+080016EC  6A0A      2850          bpl.s   lmul_3
+080016EE  4481      2851          neg.l   D1
+                    2852   lmul_2:
+080016F0  6114      2853          bsr.s   domul
+080016F2  4481      2854          neg.l   D1
+080016F4  4080      2855          negx.l  D0
+080016F6  6002      2856          bra.s   lmul_4
+                    2857   lmul_3:
+080016F8  610C      2858          bsr.s   domul
+                    2859   lmul_4:
+080016FA  2D41 0008 2860          move.l  D1,8(A6)
+080016FE  4CDF 0003 2861          movem.l (A7)+,D0/D1
+08001702  4E5E      2862          unlk    A6
+08001704  4E75      2863          rts
+                    2864   domul:
+08001706  0C81 0000 2865          cmpi.l  #$FFFF,D1
+0800170A  FFFF      
+0800170C  620C      2866          bhi.s   domul_1
+0800170E  0C80 0000 2867          cmpi.l  #$FFFF,D0
+08001712  FFFF      
+08001714  620E      2868          bhi.s   domul_2
+08001716  C2C0      2869          mulu    D0,D1
+08001718  4E75      2870          rts
+                    2871   domul_1:
+0800171A  0C80 0000 2872          cmpi.l  #$FFFF,D0
+0800171E  FFFF      
+08001720  6218      2873          bhi.s   domul_4
+08001722  6002      2874          bra.s   domul_3
+                    2875   domul_2
+08001724  C141      2876          exg     D0,D1
+                    2877   domul_3:
+08001726  2F02      2878          move.l  D2,-(A7)
+08001728  2401      2879          move.l  D1,D2
+0800172A  4842      2880          swap    D2
+0800172C  C2C0      2881          mulu    D0,D1
+0800172E  C4C0      2882          mulu    D0,D2
+08001730  4842      2883          swap    D2
+08001732  4242      2884          clr.w   D2
+08001734  D282      2885          add.l   D2,D1
+08001736  241F      2886          move.l  (A7)+,D2
+08001738  4E75      2887          rts
+                    2888   domul_4:
+0800173A  48E7 3000 2889          movem.l D2/D3,-(A7)
+0800173E  2401      2890          move.l  D1,D2
+08001740  2601      2891          move.l  D1,D3
+08001742  C2C0      2892          mulu    D0,D1
+08001744  4842      2893          swap    D2
+08001746  C4C0      2894          mulu    D0,D2
+08001748  4840      2895          swap    D0
+0800174A  C6C0      2896          mulu    D0,D3
+0800174C  D483      2897          add.l   D3,D2
+0800174E  4842      2898          swap    D2
+08001750  4242      2899          clr.w   D2
+08001752  D282      2900          add.l   D2,D1
+08001754  4CDF 000C 2901          movem.l (A7)+,D2/D3
+08001758  4E75      2902          rts
+                    2903   _strlen:
+0800175A  206F 0004 2904          move.l    (4,A7),A0
+0800175E  2248      2905          move.l    A0,A1
+                    2906   strlen_1:
+08001760  4A19      2907          tst.b     (A1)+
+08001762  66FC      2908          bne       strlen_1
+08001764  2009      2909          move.l    A1,D0
+08001766  9088      2910          sub.l     A0,D0
+08001768  5380      2911          subq.l    #1,D0
+0800176A  4E75      2912          rts
+                    2913   _putch:
+0800176C  4E56 0000 2914          link      A6,#0
+08001770  2F02      2915          move.l    D2,-(A7)
+08001772  242E 0008 2916          move.l    8(A6),D2
+08001776  0C82 0000 2917          cmp.l     #10,D2
+0800177A  000A      
+0800177C  660C      2918          bne.s     putch_1
+0800177E  4878 000D 2919          pea       13
+08001782  4EB9 0800 2920          jsr       __putch
+08001786  092A      
+08001788  584F      2921          addq.w    #4,A7
+                    2922   putch_1:
+0800178A  2F02      2923          move.l    D2,-(A7)
+0800178C  4EB9 0800 2924          jsr       __putch
+08001790  092A      
+08001792  584F      2925          addq.w    #4,A7
+08001794  2002      2926          move.l    D2,D0
+08001796  241F      2927          move.l    (A7)+,D2
+08001798  4E5E      2928          unlk      A6
+0800179A  4E75      2929          rts
+                    2930   _toupper:
+0800179C  202F 0004 2931          move.l    4(A7),D0
+080017A0  0C80 0000 2932          cmp.l     #'a',D0
+080017A4  0061      
+080017A6  6D0E      2933          blt.s     toupper_1
+080017A8  0C80 0000 2934          cmp.l     #'z',D0
+080017AC  007A      
+080017AE  6E06      2935          bgt.s     toupper_1
+080017B0  0480 0000 2936          sub.l     #$20,D0
+080017B4  0020      
+                    2937   toupper_1:
+080017B6  4E75      2938          rts
+                    2939   _strcpy:
+080017B8  206F 0004 2940          move.l    (4,A7),A0
+080017BC  226F 0008 2941          move.l    (8,A7),A1
+080017C0  2008      2942          move.l    A0,D0
+                    2943   strcpy_1:
+080017C2  10D9      2944          move.b    (A1)+,(A0)+
+080017C4  66FC      2945          bne.s     strcpy_1
+080017C6  4E75      2946          rts
+                    2947          section   const
+080017C8            2948                   align
+                    2949   
+                    2950   
+                    2951   @m68kus~1_1:
+080017C8  0D0A 5768 2952          dc.b      13,10,87,104,97,116,32,105,115,32,116,104,101
+080017CC  6174 2069 
+080017D0  7320 7468 
+080017D4  65        
+080017D5  2069 6E74 2953          dc.b      32,105,110,116,101,114,110,97,108,32,69,69,80
+080017D9  6572 6E61 
+080017DD  6C20 4545 
+080017E1  50        
+080017E2  524F 4D20 2954          dc.b      82,79,77,32,97,100,100,114,101,115,115,32,121
+080017E6  6164 6472 
+080017EA  6573 7320 
+080017EE  79        
+080017EF  6F75 2077 2955          dc.b      111,117,32,119,97,110,116,32,116,111,32,97,99
+080017F3  616E 7420 
+080017F7  746F 2061 
+080017FB  63        
+080017FC  6365 7373 2956          dc.b      99,101,115,115,63,32,0
+08001800  3F20 00   
+                    2957   @m68kus~1_2:
+08001804  0D0A 4164 2958          dc.b      13,10,65,100,100,114,101,115,115,32,99,97,110
+08001808  6472 6573 
+0800180C  7320 6361 
+08001810  6E        
+08001811  6E6F 7420 2959          dc.b      110,111,116,32,98,101,32,103,114,101,97,116
+08001815  6265 2067 
+08001819  7265 6174 
+0800181D  6572 2074 2960          dc.b      101,114,32,116,104,97,110,32,48,120,48,49,102
+08001821  6861 6E20 
+08001825  3078 3031 
+08001829  66        
+0800182A  6666 6621 2961          dc.b      102,102,102,33,32,73,110,112,117,116,32,97,103
+0800182E  2049 6E70 
+08001832  7574 2061 
+08001836  67        
+08001837  6169 6E3A 2962          dc.b      97,105,110,58,32,0
+0800183B  2000      
+                    2963   @m68kus~1_3:
+0800183E  0D0A 5768 2964          dc.b      13,10,87,104,97,116,32,105,115,32,116,104,101
+08001842  6174 2069 
+08001846  7320 7468 
+0800184A  65        
+0800184B  2064 6174 2965          dc.b      32,100,97,116,97,32,121,111,117,32,119,97,110
+0800184F  6120 796F 
+08001853  7520 7761 
+08001857  6E        
+08001858  7420 746F 2966          dc.b      116,32,116,111,32,119,114,105,116,101,32,105
+0800185C  2077 7269 
+08001860  7465 2069 
+08001864  6E74 6F20 2967          dc.b      110,116,111,32,116,104,101,32,69,69,80,82,79
+08001868  7468 6520 
+0800186C  4545 5052 
+08001870  4F        
+08001871  4D3F 2000 2968          dc.b      77,63,32,0
+                    2969   @m68kus~1_4:
+08001876  0D0A 5261 2970          dc.b      13,10,82,97,110,100,111,109,32,69,69,80,82,79
+0800187A  6E64 6F6D 
+0800187E  2045 4550 
+08001882  524F      
+08001884  4D20 6279 2971          dc.b      77,32,98,121,116,101,32,119,114,105,116,101
+08001888  7465 2077 
+0800188C  7269 7465 
+08001890  00        2972          dc.b      0
+                    2973   @m68kus~1_5:
+08001892  0D0A 4545 2974          dc.b      13,10,69,69,80,82,79,77,32,119,114,105,116,116
+08001896  5052 4F4D 
+0800189A  2077 7269 
+0800189E  7474      
+080018A0  696E 6720 2975          dc.b      105,110,103,32,100,111,110,101,33,0
+080018A4  646F 6E65 
+080018A8  2100      
+                    2976   @m68kus~1_6:
+080018AA  0D0A 5261 2977          dc.b      13,10,82,97,110,100,111,109,32,69,69,80,82,79
+080018AE  6E64 6F6D 
+080018B2  2045 4550 
+080018B6  524F      
+080018B8  4D20 6279 2978          dc.b      77,32,98,121,116,101,32,114,101,97,100,0
+080018BC  7465 2072 
+080018C0  6561 6400 
+                    2979   @m68kus~1_7:
+080018C4  0D0A 4545 2980          dc.b      13,10,69,69,80,82,79,77,32,114,101,97,100,105
+080018C8  5052 4F4D 
+080018CC  2072 6561 
+080018D0  6469      
+080018D2  6E67 2064 2981          dc.b      110,103,32,100,111,110,101,33,32,37,120,0
+080018D6  6F6E 6521 
+080018DA  2025 7800 
+                    2982   @m68kus~1_8:
+080018DE  0D0A 5768 2983          dc.b      13,10,87,104,97,116,32,105,115,32,116,104,101
+080018E2  6174 2069 
+080018E6  7320 7468 
+080018EA  65        
+080018EB  2045 4550 2984          dc.b      32,69,69,80,82,79,77,32,97,100,100,114,101,115
+080018EF  524F 4D20 
+080018F3  6164 6472 
+080018F7  6573      
+080018F9  7320 7261 2985          dc.b      115,32,114,97,110,103,101,32,115,105,122,101
+080018FD  6E67 6520 
+08001901  7369 7A65 
+08001905  2028 696E 2986          dc.b      32,40,105,110,32,104,101,120,41,32,121,111,117
+08001909  2068 6578 
+0800190D  2920 796F 
+08001911  75        
+08001912  2077 616E 2987          dc.b      32,119,97,110,116,32,116,111,32,97,99,99,101
+08001916  7420 746F 
+0800191A  2061 6363 
+0800191E  65        
+0800191F  7373 3F20 2988          dc.b      115,115,63,32,0
+08001923  00        
+                    2989   @m68kus~1_9:
+08001924  0D0A 5369 2990          dc.b      13,10,83,105,122,101,32,99,97,110,110,111,116
+08001928  7A65 2063 
+0800192C  616E 6E6F 
+08001930  74        
+08001931  2062 6520 2991          dc.b      32,98,101,32,108,97,114,103,101,114,32,116,104
+08001935  6C61 7267 
+08001939  6572 2074 
+0800193D  68        
+0800193E  616E 2027 2992          dc.b      97,110,32,39,104,48,50,48,48,48,48,32,40,49
+08001942  6830 3230 
+08001946  3030 3020 
+0800194A  2831      
+0800194C  3238 4B20 2993          dc.b      50,56,75,32,98,121,116,101,115,41,44,32,105
+08001950  6279 7465 
+08001954  7329 2C20 
+08001958  69        
+08001959  6E70 7574 2994          dc.b      110,112,117,116,32,97,103,97,105,110,58,32,0
+0800195D  2061 6761 
+08001961  696E 3A20 
+08001965  00        
+                    2995   @m68kus~1_10:
+08001966  0D0A 5369 2996          dc.b      13,10,83,105,122,101,32,99,97,110,110,111,116
+0800196A  7A65 2063 
+0800196E  616E 6E6F 
+08001972  74        
+08001973  2062 6520 2997          dc.b      32,98,101,32,48,44,32,116,104,101,32,109,105
+08001977  302C 2074 
+0800197B  6865 206D 
+0800197F  69        
+08001980  6E69 6D75 2998          dc.b      110,105,109,117,109,32,115,105,122,101,32,105
+08001984  6D20 7369 
+08001988  7A65 2069 
+0800198C  7320 2768 2999          dc.b      115,32,39,104,48,48,48,48,48,49,32,40,49,32
+08001990  3030 3030 
+08001994  3031 2028 
+08001998  3120      
+0800199A  6279 7465 3000          dc.b      98,121,116,101,41,44,32,105,110,112,117,116
+0800199E  292C 2069 
+080019A2  6E70 7574 
+080019A6  2061 6761 3001          dc.b      32,97,103,97,105,110,58,32,0
+080019AA  696E 3A20 
+080019AE  00        
+                    3002   @m68kus~1_11:
+080019B0  0D0A 4D75 3003          dc.b      13,10,77,117,108,116,105,112,101,32,98,121,116
+080019B4  6C74 6970 
+080019B8  6520 6279 
+080019BC  74        
+080019BD  6573 2045 3004          dc.b      101,115,32,69,69,80,82,79,77,32,119,114,105
+080019C1  4550 524F 
+080019C5  4D20 7772 
+080019C9  69        
+080019CA  7465 00   3005          dc.b      116,101,0
+                    3006   @m68kus~1_12:
+080019CE  0D0A 5772 3007          dc.b      13,10,87,114,105,116,116,105,110,103,46,46,46
+080019D2  6974 7469 
+080019D6  6E67 2E2E 
+080019DA  2E        
+080019DB  00        3008          dc.b      0
+                    3009   @m68kus~1_13:
+080019DC  0D0A 4D75 3010          dc.b      13,10,77,117,108,116,105,112,108,101,32,98,121
+080019E0  6C74 6970 
+080019E4  6C65 2062 
+080019E8  79        
+080019E9  7465 7320 3011          dc.b      116,101,115,32,119,114,105,116,116,105,110,103
+080019ED  7772 6974 
+080019F1  7469 6E67 
+080019F5  2064 6F6E 3012          dc.b      32,100,111,110,101,0
+080019F9  6500      
+                    3013   @m68kus~1_14:
+080019FC  0D0A 4D75 3014          dc.b      13,10,77,117,108,116,105,112,108,101,32,98,121
+08001A00  6C74 6970 
+08001A04  6C65 2062 
+08001A08  79        
+08001A09  7465 7320 3015          dc.b      116,101,115,32,69,69,80,82,79,77,32,114,101
+08001A0D  4545 5052 
+08001A11  4F4D 2072 
+08001A15  65        
+08001A16  6164 00   3016          dc.b      97,100,0
+                    3017   @m68kus~1_15:
+08001A1A  0D0A 4164 3018          dc.b      13,10,65,100,100,114,101,115,115,58,32,37,120
+08001A1E  6472 6573 
+08001A22  733A 2025 
+08001A26  78        
+08001A27  2C20 5265 3019          dc.b      44,32,82,101,97,100,32,100,97,116,97,58,32,37
+08001A2B  6164 2064 
+08001A2F  6174 613A 
+08001A33  2025      
+08001A35  7800      3020          dc.b      120,0
+                    3021   @m68kus~1_16:
+08001A38  0D0A 5573 3022          dc.b      13,10,85,115,105,110,103,32,68,65,67,32,116
+08001A3C  696E 6720 
+08001A40  4441 4320 
+08001A44  74        
+08001A45  6F20 636F 3023          dc.b      111,32,99,111,110,116,114,111,108,32,76,69,68
+08001A49  6E74 726F 
+08001A4D  6C20 4C45 
+08001A51  44        
+08001A52  00        3024          dc.b      0
+                    3025   @m68kus~1_17:
+08001A54  0D0A 5265 3026          dc.b      13,10,82,101,97,100,105,110,103,32,118,97,108
+08001A58  6164 696E 
+08001A5C  6720 7661 
+08001A60  6C        
+08001A61  7565 7320 3027          dc.b      117,101,115,32,102,114,111,109,32,116,104,101
+08001A65  6672 6F6D 
+08001A69  2074 6865 
+08001A6D  2041 4443 3028          dc.b      32,65,68,67,0
+08001A71  00        
+                    3029   @m68kus~1_18:
+08001A72  0D0A 5265 3030          dc.b      13,10,82,101,97,100,32,100,97,116,97,58,32,37
+08001A76  6164 2064 
+08001A7A  6174 613A 
+08001A7E  2025      
+08001A80  7800      3031          dc.b      120,0
+                    3032   @m68kus~1_19:
+08001A82  0D0A 5768 3033          dc.b      13,10,87,104,105,99,104,32,99,104,97,110,110
+08001A86  6963 6820 
+08001A8A  6368 616E 
+08001A8E  6E        
+08001A8F  656C 2079 3034          dc.b      101,108,32,121,111,117,32,119,97,110,116,32
+08001A93  6F75 2077 
+08001A97  616E 7420 
+08001A9B  746F 2072 3035          dc.b      116,111,32,114,101,97,100,63,32,49,46,32,80
+08001A9F  6561 643F 
+08001AA3  2031 2E20 
+08001AA7  50        
+08001AA8  6F74 656E 3036          dc.b      111,116,101,110,116,105,111,109,101,116,101
+08001AAC  7469 6F6D 
+08001AB0  6574 65   
+08001AB3  7220 322E 3037          dc.b      114,32,50,46,80,104,111,116,111,114,101,115
+08001AB7  5068 6F74 
+08001ABB  6F72 6573 
+08001ABF  6973 746F 3038          dc.b      105,115,116,111,114,32,51,46,84,104,101,114
+08001AC3  7220 332E 
+08001AC7  5468 6572 
+08001ACB  6D69 7374 3039          dc.b      109,105,115,116,111,114,32,0
+08001ACF  6F72 2000 
+                    3040   @m68kus~1_20:
+08001AD4  0D0A 496E 3041          dc.b      13,10,73,110,118,97,108,105,100,32,115,101,108
+08001AD8  7661 6C69 
+08001ADC  6420 7365 
+08001AE0  6C        
+08001AE1  6563 7469 3042          dc.b      101,99,116,105,111,110,33,0
+08001AE5  6F6E 2100 
+                    3043   @m68kus~1_21:
+08001AEA  0D0A 5768 3044          dc.b      13,10,87,104,105,99,104,32,102,117,110,99,116
+08001AEE  6963 6820 
+08001AF2  6675 6E63 
+08001AF6  74        
+08001AF7  696F 6E20 3045          dc.b      105,111,110,32,121,111,117,32,119,97,110,116
+08001AFB  796F 7520 
+08001AFF  7761 6E74 
+08001B03  2074 6F20 3046          dc.b      32,116,111,32,114,117,110,63,10,49,46,69,69
+08001B07  7275 6E3F 
+08001B0B  0A31 2E45 
+08001B0F  45        
+08001B10  5052 4F4D 3047          dc.b      80,82,79,77,32,115,105,110,103,108,101,32,98
+08001B14  2073 696E 
+08001B18  676C 6520 
+08001B1C  62        
+08001B1D  7974 6520 3048          dc.b      121,116,101,32,119,114,105,116,101,10,50,46
+08001B21  7772 6974 
+08001B25  650A 322E 
+08001B29  4545 5052 3049          dc.b      69,69,80,82,79,77,32,115,105,110,103,108,101
+08001B2D  4F4D 2073 
+08001B31  696E 676C 
+08001B35  65        
+08001B36  2062 7974 3050          dc.b      32,98,121,116,101,32,114,101,97,100,10,51,46
+08001B3A  6520 7265 
+08001B3E  6164 0A33 
+08001B42  2E        
+08001B43  4545 5052 3051          dc.b      69,69,80,82,79,77,32,112,97,103,101,32,119,114
+08001B47  4F4D 2070 
+08001B4B  6167 6520 
+08001B4F  7772      
+08001B51  6974 650A 3052          dc.b      105,116,101,10,52,46,69,69,80,82,79,77,32,112
+08001B55  342E 4545 
+08001B59  5052 4F4D 
+08001B5D  2070      
+08001B5F  6167 6520 3053          dc.b      97,103,101,32,114,101,97,100,10,53,46,68,65
+08001B63  7265 6164 
+08001B67  0A35 2E44 
+08001B6B  41        
+08001B6C  432D 3E4C 3054          dc.b      67,45,62,76,69,68,10,54,46,65,68,67,60,45,115
+08001B70  4544 0A36 
+08001B74  2E41 4443 
+08001B78  3C2D 73   
+08001B7B  656E 736F 3055          dc.b      101,110,115,111,114,115,32,0
+08001B7F  7273 2000 
+                    3056   @m68kus~1_22:
+08001B84  0D0A 496E 3057          dc.b      13,10,73,110,118,97,108,105,100,32,115,101,108
+08001B88  7661 6C69 
+08001B8C  6420 7365 
+08001B90  6C        
+08001B91  6563 7469 3058          dc.b      101,99,116,105,111,110,33,32,0
+08001B95  6F6E 2120 
+08001B99  00        
+                    3059   @itoa_1:
+08001B9A  2D32 3134 3060          dc.b      45,50,49,52,55,52,56,51,54,52,56,0
+08001B9E  3734 3833 
+08001BA2  3634 3800 
+                    3061   __ctype:
+08001BA6  0040 4040 3062          dc.b      0,64,64,64,64,64,64,64,64,64,80,80,80,80,80
+08001BAA  4040 4040 
+08001BAE  4040 5050 
+08001BB2  5050 50   
+08001BB5  4040 4040 3063          dc.b      64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
+08001BB9  4040 4040 
+08001BBD  4040 4040 
+08001BC1  4040 40   
+08001BC4  4040 40D0 3064          dc.b      64,64,64,208,160,160,160,160,160,160,160,160
+08001BC8  A0A0 A0A0 
+08001BCC  A0A0 A0A0 
+08001BD0  A0A0 A0A0 3065          dc.b      160,160,160,160,160,160,160,140,140,140,140
+08001BD4  A0A0 A08C 
+08001BD8  8C8C 8C   
+08001BDB  8C8C 8C8C 3066          dc.b      140,140,140,140,140,140,160,160,160,160,160
+08001BDF  8C8C A0A0 
+08001BE3  A0A0 A0   
+08001BE6  A0A0 8A8A 3067          dc.b      160,160,138,138,138,138,138,138,130,130,130
+08001BEA  8A8A 8A8A 
+08001BEE  8282 82   
+08001BF1  8282 8282 3068          dc.b      130,130,130,130,130,130,130,130,130,130,130
+08001BF5  8282 8282 
+08001BF9  8282 82   
+08001BFC  8282 8282 3069          dc.b      130,130,130,130,130,130,160,160,160,160,160
+08001C00  8282 A0A0 
+08001C04  A0A0 A0   
+08001C07  A089 8989 3070          dc.b      160,137,137,137,137,137,137,129,129,129,129
+08001C0B  8989 8981 
+08001C0F  8181 81   
+08001C12  8181 8181 3071          dc.b      129,129,129,129,129,129,129,129,129,129,129
+08001C16  8181 8181 
+08001C1A  8181 81   
+08001C1D  8181 8181 3072          dc.b      129,129,129,129,129,160,160,160,160,64,0,0,0
+08001C21  81A0 A0A0 
+08001C25  A040 0000 
+08001C29  00        
+08001C2A  0000 0000 3073          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08001C2E  0000 0000 
+08001C32  0000 0000 
+08001C36  0000 0000 
+08001C3A  0000 0000 
+08001C3E  0000      
+08001C40  0000 0000 3074          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08001C44  0000 0000 
+08001C48  0000 0000 
+08001C4C  0000 0000 
+08001C50  0000 0000 
+08001C54  0000      
+08001C56  0000 0000 3075          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08001C5A  0000 0000 
+08001C5E  0000 0000 
+08001C62  0000 0000 
+08001C66  0000 0000 
+08001C6A  0000      
+08001C6C  0000 0000 3076          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08001C70  0000 0000 
+08001C74  0000 0000 
+08001C78  0000 0000 
+08001C7C  0000 0000 
+08001C80  0000      
+08001C82  0000 0000 3077          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08001C86  0000 0000 
+08001C8A  0000 0000 
+08001C8E  0000 0000 
+08001C92  0000 0000 
+08001C96  0000      
+08001C98  0000 0000 3078          dc.b      0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+08001C9C  0000 0000 
+08001CA0  0000 0000 
+08001CA4  0000 00   
+                    3079          section   data
+08001CA8            3080                   align
+                    3081   
+                    3082   *********************************************************************************************************************************************************
+                    3083   * Section for Initialised Data (in theory should be copied to Ram at startup) but is part of program code as we copy whole program to ram at startup
+                    3084   ********************************************************************************************************************************************************
+                    3085   
+          0800 1CA8 3086   DataStart       equ       *
+08001CA8            3087   __ungetbuf:     ds.l      1                    ungetbuffer for stdio functions
+08001CAC            3088   __allocp:       ds.l      1                    start of free memory block list
+08001CB0            3089   __heap:         ds.l      1                    begin of free memory
+                    3090   
+                    3091   
+                    3092          section   bss
+08001CB4            3093                   align
+                    3094   
+          0800 1CB4 3095   DataEnd         equ       *                    this label will equate to the address of the last byte of global variable in it
+          0000 000C 3096   DataLength      equ       DataEnd-DataStart    length of data needed to copy to Ram on bootup
+                    3097   
+                    3098   *********************************************************************************************************
+                    3099   * Section for uninitialised Data which is set to zero, i.e. we should set this space to zero at starup
+                    3100   *********************************************************************************************************
+          0800 1CB4 3101   BssStart       equ       *
+                    3102   
+                    3103   _i:
+08001CB4            3104          ds.b      4
+                    3105   _x:
+08001CB8            3106          ds.b      4
+                    3107   _y:
+08001CBC            3108          ds.b      4
+                    3109   _z:
+08001CC0            3110          ds.b      4
+                    3111   _PortA_Count:
+08001CC4            3112          ds.b      4
+                    3113   _Timer1Count:
+08001CC8            3114          ds.b      1
+                    3115   _Timer2Count:
+08001CCA            3116          ds.b      1
+                    3117   _Timer3Count:
+08001CCC            3118          ds.b      1
+                    3119   _Timer4Count:
+08001CCE            3120          ds.b      1
+                    3121          section   heap
+08001CD0            3122                  align
+                    3123   
+          0800 1CD0 3124   BssEnd         equ       *
+          0000 001C 3125   BssLength      equ       BssEnd-BssStart       length of zeroed data needed to copy to Ram on bootup
+                    3126   
+                    3127   *********************************************************************************************************
+                    3128   * Section for Heap
+                    3129   *********************************************************************************************************
+                    3130   
+          0800 1CD0 3131   heap           equ       *
+08001CD0            3132                  align
+          0800 0000
+
+Assembly errors: 0
