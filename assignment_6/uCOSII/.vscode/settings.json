@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "ucos_ii.h": "c",
+        "os_cpu.h": "c",
+        "os_cfg.h": "c",
+        "app_cfg.h": "c"
+    }
+}
