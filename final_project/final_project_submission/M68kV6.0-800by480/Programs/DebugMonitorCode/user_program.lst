@@ -1,0 +1,2030 @@
+680x0 MACRO ASSEMBLER   Version 5.00   (c) 1992-2005 Peter J. Fondse
+
+Date: 16 Apr 2023      Time: 18:11:54          Source: C:\M68KV6.0-800BY480\PROGRAMS\DEBUGMONITORCODE\USER_PROGRAM.SRC
+
+                       1          section   code
+                       2   **********************************************************************************************************
+                       3   * CSTART.ASM  -  C startup-code
+                       4   *
+                       5   *          Initialises the system prior to running the users main() program
+                       6   *
+                       7   *          1) Sets up the user program stack pointer
+                       8   *          2) Switches to User mode in the 68000
+                       9   *          3) Enables All Interrupts 1-7 on 68000
+                      10   *          4) Copies all initialised C program variables from Rom to Ram prior to running main()
+                      11   *
+                      12   **********************************************************************************************************
+00000000              13                   align
+                      14   
+                      15   
+                      16   **********************************************************************************************************
+                      17   * The Following ORG Statement marks the address of the start of the this CStart Program
+                      18   *
+                      19   * The debug Monitor and Flash Load and Program routines assume your program lives here
+                      20   **********************************************************************************************************
+08000000              21                   org       $08000000
+08000000  46FC 2000   22   start:          move.w    #$2000,SR             clear interrupts to enable all, move to supervisor mode
+                      23   
+                      24   ******************************************************************************************
+                      25   * Set unitialised global variables to 0 at startup
+                      26   ******************************************************************************************
+08000004  207C 0800   27   mainloop        movea.l   #BssStart,a0          point a0 to the start of the initialised data section held in ROM
+08000008  0D5C      
+0800000A  203C 0000   28                   move.l    #BssLength,d0         figure out how many bytes of C program variables data to copy
+0800000E  4026      
+08000010  6700 0024   29                   beq       go_main               if no data to copy go straight to program
+08000014  10FC 0000   30   Zeroinit        move.b    #0,(a0)+              copy the C program initialise variables from rom to ram
+08000018  5380        31                   subq.l    #1,d0
+0800001A  66F8        32                   bne       Zeroinit
+                      33   
+                      34   *******************************************************************************************
+                      35   * last minute initialisation before calling main
+                      36   *******************************************************************************************
+                      37   
+0800001C  23FC FFFF   38                   move.l    #-1,__ungetbuf         required for use of scanf() etc in C programs
+08000020  FFFF 0800 
+08000024  0D4C      
+08000026  42B9 0800   39                   clr.l     __allocp               used by malloc() in C
+0800002A  0D50      
+0800002C  23FC 0800   40                   move.l    #heap,__heap           pointer to free memory
+08000030  4D82 0800 
+08000034  0D54      
+08000036  4EB9 0800   41   go_main         jsr       _main
+0800003A  0B72      
+0800003C  60C2        42                   bra       start
+                      43   
+                      44   ; C:\M68KV6.0-800BY480\PROGRAMS\DEBUGMONITORCODE\SNAKE.C - Compiled by CC68K  Version 5.00 (c) 1991-2005  Peter J. Fondse
+                      45   ; #include <stdio.h>
+                      46   ; #include <stdlib.h>
+                      47   ; #include <limits.h>
+                      48   ; #include "snake.h"
+                      49   ; #define vga_ram_start         (*(volatile unsigned char *)(0x00600000))
+                      50   ; #define vga_x_cursor_reg          (*(volatile unsigned char *)(0x00601000))
+                      51   ; #define vga_y_cursor_reg            (*(volatile unsigned char *)(0x00601002))
+                      52   ; #define vga_ctrl_reg             (*(volatile unsigned char *)(0x00601004))
+                      53   ; #define StartOfExceptionVectorTable 0x0B000000
+                      54   ; #define Timer2Data      *(volatile unsigned char *)(0x00400034)
+                      55   ; #define Timer2Control   *(volatile unsigned char *)(0x00400036)
+                      56   ; #define Timer2Status    *(volatile unsigned char *)(0x00400036)
+                      57   ; /*********************************************************************************************
+                      58   ; **	RS232 port addresses
+                      59   ; *********************************************************************************************/
+                      60   ; #define RS232_Control     *(volatile unsigned char *)(0x00400040)
+                      61   ; #define RS232_Status      *(volatile unsigned char *)(0x00400040)
+                      62   ; #define RS232_TxData      *(volatile unsigned char *)(0x00400042)
+                      63   ; #define RS232_RxData      *(volatile unsigned char *)(0x00400042)
+                      64   ; #define RS232_Baud        *(volatile unsigned char *)(0x00400044)
+                      65   ; /**********************************************************************************************
+                      66   ; **	LCD display port addresses
+                      67   ; **********************************************************************************************/
+                      68   ; #define LCDcommand   *(volatile unsigned char *)(0x00400020)
+                      69   ; #define LCDdata      *(volatile unsigned char *)(0x00400022)
+                      70   ; int score;
+                      71   ; int timer;
+                      72   ; unsigned int clock_counter;
+                      73   ; struct
+                      74   ; {
+                      75   ; coord_t xy[SNAKE_LENGTH_LIMIT];
+                      76   ; int length;
+                      77   ; dir_t direction;
+                      78   ; int speed;
+                      79   ; int speed_increase;
+                      80   ; coord_t food;
+                      81   ; } Snake;
+                      82   ; const coord_t screensize = {NUM_VGA_COLUMNS,NUM_VGA_ROWS};
+                      83   ; int waiting_for_direction_to_be_implemented;
+                      84   ; /*********************************************************************************************************************************
+                      85   ; **  IMPORTANT FUNCTION
+                      86   ; **  This function install an exception handler so you can capture and deal with any 68000 exception in your program
+                      87   ; **  You pass it the name of a function in your code that will get called in response to the exception (as the 1st parameter)
+                      88   ; **  and in the 2nd parameter, you pass it the exception number that you want to take over (see 68000 exceptions for details)
+                      89   ; **  Calling this function allows you to deal with Interrupts for example
+                      90   ; ***********************************************************************************************************************************/
+                      91   ; void InstallExceptionHandler( void (*function_ptr)(), int level)
+                      92   ; {
+                      93   _InstallExceptionHandler:
+0800003E  4E56 FFFC   94          link      A6,#-4
+                      95   ; volatile long int *RamVectorAddress = (volatile long int *)(StartOfExceptionVectorTable) ;   // pointer to the Ram based interrupt vector table created in Cstart in debug monitor
+08000042  2D7C 0B00   96          move.l    #184549376,-4(A6)
+08000046  0000 FFFC 
+                      97   ; RamVectorAddress[level] = (long int *)(function_ptr);                       // install the address of our function into the exception table
+0800004A  206E FFFC   98          move.l    -4(A6),A0
+0800004E  202E 000C   99          move.l    12(A6),D0
+08000052  E588       100          lsl.l     #2,D0
+08000054  21AE 0008  101          move.l    8(A6),0(A0,D0.L)
+08000058  0800      
+0800005A  4E5E       102          unlk      A6
+0800005C  4E75       103          rts
+                     104   ; }
+                     105   ; /************************************************************************************
+                     106   ; **   Delay Subroutine to give the 68000 something useless to do to waste 1 mSec
+                     107   ; ************************************************************************************/
+                     108   ; void Wait1ms(void)
+                     109   ; {
+                     110   _Wait1ms:
+0800005E  2F02       111          move.l    D2,-(A7)
+                     112   ; int  i ;
+                     113   ; for(i = 0; i < 1000; i ++)
+08000060  4282       114          clr.l     D2
+                     115   Wait1ms_1:
+08000062  0C82 0000  116          cmp.l     #1000,D2
+08000066  03E8      
+08000068  6C04       117          bge.s     Wait1ms_3
+0800006A  5282       118          addq.l    #1,D2
+0800006C  60F4       119          bra       Wait1ms_1
+                     120   Wait1ms_3:
+0800006E  241F       121          move.l    (A7)+,D2
+08000070  4E75       122          rts
+                     123   ; ;
+                     124   ; }
+                     125   ; /************************************************************************************
+                     126   ; **  Subroutine to give the 68000 something useless to do to waste 3 mSec
+                     127   ; **************************************************************************************/
+                     128   ; void Wait3ms(void)
+                     129   ; {
+                     130   _Wait3ms:
+08000072  2F02       131          move.l    D2,-(A7)
+                     132   ; int i ;
+                     133   ; for(i = 0; i < 3; i++)
+08000074  4282       134          clr.l     D2
+                     135   Wait3ms_1:
+08000076  0C82 0000  136          cmp.l     #3,D2
+0800007A  0003      
+0800007C  6C0A       137          bge.s     Wait3ms_3
+                     138   ; Wait1ms() ;
+0800007E  4EB9 0800  139          jsr       _Wait1ms
+08000082  005E      
+08000084  5282       140          addq.l    #1,D2
+08000086  60EE       141          bra       Wait3ms_1
+                     142   Wait3ms_3:
+08000088  241F       143          move.l    (A7)+,D2
+0800008A  4E75       144          rts
+                     145   ; }
+                     146   ; void Wait500ms (void) {
+                     147   _Wait500ms:
+0800008C  2F02       148          move.l    D2,-(A7)
+                     149   ; int i;
+                     150   ; for (i = 0; i<500; i++){
+0800008E  4282       151          clr.l     D2
+                     152   Wait500ms_1:
+08000090  0C82 0000  153          cmp.l     #500,D2
+08000094  01F4      
+08000096  6C0A       154          bge.s     Wait500ms_3
+                     155   ; Wait1ms();
+08000098  4EB9 0800  156          jsr       _Wait1ms
+0800009C  005E      
+0800009E  5282       157          addq.l    #1,D2
+080000A0  60EE       158          bra       Wait500ms_1
+                     159   Wait500ms_3:
+080000A2  241F       160          move.l    (A7)+,D2
+080000A4  4E75       161          rts
+                     162   ; }
+                     163   ; }
+                     164   ; /*********************************************************************************************
+                     165   ; **  Subroutine to initialise the LCD display by writing some commands to the LCD internal registers
+                     166   ; **  Sets it for parallel port and 2 line display mode (if I recall correctly)
+                     167   ; *********************************************************************************************/
+                     168   ; void Init_LCD(void)
+                     169   ; {
+                     170   _Init_LCD:
+                     171   ; LCDcommand = 0x0c ;
+080000A6  13FC 000C  172          move.b    #12,4194336
+080000AA  0040 0020 
+                     173   ; Wait3ms() ;
+080000AE  4EB9 0800  174          jsr       _Wait3ms
+080000B2  0072      
+                     175   ; LCDcommand = 0x38 ;
+080000B4  13FC 0038  176          move.b    #56,4194336
+080000B8  0040 0020 
+                     177   ; Wait3ms() ;
+080000BC  4EB9 0800  178          jsr       _Wait3ms
+080000C0  0072      
+080000C2  4E75       179          rts
+                     180   ; }
+                     181   ; /*********************************************************************************************
+                     182   ; **  Subroutine to initialise the RS232 Port by writing some commands to the internal registers
+                     183   ; *********************************************************************************************/
+                     184   ; void Init_RS232(void)
+                     185   ; {
+                     186   _Init_RS232:
+                     187   ; RS232_Control = 0x15 ; //  %00010101 set up 6850 uses divide by 16 clock, set RTS low, 8 bits no parity, 1 stop bit, transmitter interrupt disabled
+080000C4  13FC 0015  188          move.b    #21,4194368
+080000C8  0040 0040 
+                     189   ; RS232_Baud = 0x1 ;      // program baud rate generator 001 = 115k, 010 = 57.6k, 011 = 38.4k, 100 = 19.2, all others = 9600
+080000CC  13FC 0001  190          move.b    #1,4194372
+080000D0  0040 0044 
+080000D4  4E75       191          rts
+                     192   ; }
+                     193   ; int kbhit(void)
+                     194   ; {
+                     195   _kbhit:
+                     196   ; if(((char)(RS232_Status) & (char)(0x01)) == (char)(0x01))    // wait for Rx bit in status register to be '1'
+080000D6  1039 0040  197          move.b    4194368,D0
+080000DA  0040      
+080000DC  C03C 0001  198          and.b     #1,D0
+080000E0  0C00 0001  199          cmp.b     #1,D0
+080000E4  6604       200          bne.s     kbhit_1
+                     201   ; return 1 ;
+080000E6  7001       202          moveq     #1,D0
+080000E8  6002       203          bra.s     kbhit_3
+                     204   kbhit_1:
+                     205   ; else
+                     206   ; return 0 ;
+080000EA  4280       207          clr.l     D0
+                     208   kbhit_3:
+080000EC  4E75       209          rts
+                     210   ; }
+                     211   ; /*********************************************************************************************************
+                     212   ; **  Subroutine to provide a low level output function to 6850 ACIA
+                     213   ; **  This routine provides the basic functionality to output a single character to the serial Port
+                     214   ; **  to allow the board to communicate with HyperTerminal Program
+                     215   ; **
+                     216   ; **  NOTE you do not call this function directly, instead you call the normal putchar() function
+                     217   ; **  which in turn calls _putch() below). Other functions like puts(), printf() call putchar() so will
+                     218   ; **  call _putch() also
+                     219   ; *********************************************************************************************************/
+                     220   ; int _putch( int c)
+                     221   ; {
+                     222   __putch:
+080000EE  4E56 0000  223          link      A6,#0
+                     224   ; while((RS232_Status & (char)(0x02)) != (char)(0x02))    // wait for Tx bit in status register or 6850 serial comms chip to be '1'
+                     225   _putch_1:
+080000F2  1039 0040  226          move.b    4194368,D0
+080000F6  0040      
+080000F8  C03C 0002  227          and.b     #2,D0
+080000FC  0C00 0002  228          cmp.b     #2,D0
+08000100  6702       229          beq.s     _putch_3
+08000102  60EE       230          bra       _putch_1
+                     231   _putch_3:
+                     232   ; ;
+                     233   ; RS232_TxData = (c & (char)(0x7f));                      // write to the data register to output the character (mask off bit 8 to keep it 7 bit ASCII)
+08000104  202E 0008  234          move.l    8(A6),D0
+08000108  C0BC 0000  235          and.l     #127,D0
+0800010C  007F      
+0800010E  13C0 0040  236          move.b    D0,4194370
+08000112  0042      
+                     237   ; return c ;                                              // putchar() expects the character to be returned
+08000114  202E 0008  238          move.l    8(A6),D0
+08000118  4E5E       239          unlk      A6
+0800011A  4E75       240          rts
+                     241   ; }
+                     242   ; /*********************************************************************************************************
+                     243   ; **  Subroutine to provide a low level input function to 6850 ACIA
+                     244   ; **  This routine provides the basic functionality to input a single character from the serial Port
+                     245   ; **  to allow the board to communicate with HyperTerminal Program Keyboard (your PC)
+                     246   ; **
+                     247   ; **  NOTE you do not call this function directly, instead you call the normal getchar() function
+                     248   ; **  which in turn calls _getch() below). Other functions like gets(), scanf() call getchar() so will
+                     249   ; **  call _getch() also
+                     250   ; *********************************************************************************************************/
+                     251   ; int _getch( void )
+                     252   ; {
+                     253   __getch:
+0800011C  2F02       254          move.l    D2,-(A7)
+                     255   ; char c ;
+                     256   ; while((RS232_Status & (char)(0x01)) != (char)(0x01))    // wait for Rx bit in 6850 serial comms chip status register to be '1'
+                     257   _getch_1:
+0800011E  1039 0040  258          move.b    4194368,D0
+08000122  0040      
+08000124  C03C 0001  259          and.b     #1,D0
+08000128  0C00 0001  260          cmp.b     #1,D0
+0800012C  6702       261          beq.s     _getch_3
+0800012E  60EE       262          bra       _getch_1
+                     263   _getch_3:
+                     264   ; ;
+                     265   ; c = (RS232_RxData & (char)(0x7f));
+08000130  1039 0040  266          move.b    4194370,D0
+08000134  0042      
+08000136  C03C 007F  267          and.b     #127,D0
+0800013A  1400       268          move.b    D0,D2
+                     269   ; _putch(c);
+0800013C  4882       270          ext.w     D2
+0800013E  48C2       271          ext.l     D2
+08000140  2F02       272          move.l    D2,-(A7)
+08000142  4EB9 0800  273          jsr       __putch
+08000146  00EE      
+08000148  584F       274          addq.w    #4,A7
+                     275   ; return c;                   // read received character, mask off top bit and return as 7 bit ASCII character
+0800014A  4882       276          ext.w     D2
+0800014C  48C2       277          ext.l     D2
+0800014E  2002       278          move.l    D2,D0
+08000150  241F       279          move.l    (A7)+,D2
+08000152  4E75       280          rts
+                     281   ; }
+                     282   ; /////////////////////////////////////////////////////////////////////////////////////////////////////
+                     283   ; //
+                     284   ; //
+                     285   ; //                        functions to implement
+                     286   ; //
+                     287   ; //
+                     288   ; /////////////////////////////////////////////////////////////////////////////////////////////////////
+                     289   ; void putcharxy(int x, int y, char ch) {
+                     290   _putcharxy:
+08000154  4E56 FFFC  291          link      A6,#-4
+                     292   ; //display on the VGA char ch at column x, line y
+                     293   ; volatile unsigned char* addr;
+                     294   ; addr = &vga_ram_start + NUM_VGA_COLUMNS*y + x;
+08000158  203C 0060  295          move.l    #6291456,D0
+0800015C  0000      
+0800015E  2F2E 000C  296          move.l    12(A6),-(A7)
+08000162  4878 0050  297          pea       80
+08000166  4EB9 0800  298          jsr       LMUL
+0800016A  0CA4      
+0800016C  2217       299          move.l    (A7),D1
+0800016E  504F       300          addq.w    #8,A7
+08000170  D081       301          add.l     D1,D0
+08000172  D0AE 0008  302          add.l     8(A6),D0
+08000176  2D40 FFFC  303          move.l    D0,-4(A6)
+                     304   ; *addr = ch;
+0800017A  206E FFFC  305          move.l    -4(A6),A0
+0800017E  10AE 0013  306          move.b    19(A6),(A0)
+08000182  4E5E       307          unlk      A6
+08000184  4E75       308          rts
+                     309   ; }
+                     310   ; void print_at_xy(int x,
+                     311   ; int y,
+                     312   ; const char* str) {
+                     313   _print_at_xy:
+08000186  4E56 0000  314          link      A6,#0
+0800018A  48E7 3C00  315          movem.l   D2/D3/D4/D5,-(A7)
+                     316   ; //print a string on the VGA, starting at column x, line y. 
+                     317   ; //Wrap around to the next line if we reach the edge of the screen
+                     318   ; int end_of_str = 0;
+0800018E  4285       319          clr.l     D5
+                     320   ; int i = 0;
+08000190  4284       321          clr.l     D4
+                     322   ; int x_coord = x;
+08000192  262E 0008  323          move.l    8(A6),D3
+                     324   ; int y_coord = y;
+08000196  242E 000C  325          move.l    12(A6),D2
+                     326   ; while (!end_of_str)
+                     327   print_at_xy_1:
+0800019A  4A85       328          tst.l     D5
+0800019C  6600 004A  329          bne       print_at_xy_3
+                     330   ; {
+                     331   ; if (*(str+i) != '\0')
+080001A0  206E 0010  332          move.l    16(A6),A0
+080001A4  1030 4800  333          move.b    0(A0,D4.L),D0
+080001A8  6700 0038  334          beq       print_at_xy_4
+                     335   ; {   
+                     336   ; if (x_coord > NUM_VGA_COLUMNS-1) { //Wrap around to the next line if we reach the edge of the screen
+080001AC  0C83 0000  337          cmp.l     #79,D3
+080001B0  004F      
+080001B2  6F04       338          ble.s     print_at_xy_6
+                     339   ; x_coord = 0;
+080001B4  4283       340          clr.l     D3
+                     341   ; y_coord++;
+080001B6  5282       342          addq.l    #1,D2
+                     343   print_at_xy_6:
+                     344   ; }
+                     345   ; if (y_coord > NUM_VGA_ROWS-1) {
+080001B8  0C82 0000  346          cmp.l     #39,D2
+080001BC  0027      
+080001BE  6F02       347          ble.s     print_at_xy_8
+                     348   ; y_coord = 0;
+080001C0  4282       349          clr.l     D2
+                     350   print_at_xy_8:
+                     351   ; }
+                     352   ; putcharxy(x_coord,y_coord, *(str+i));
+080001C2  206E 0010  353          move.l    16(A6),A0
+080001C6  1230 4800  354          move.b    0(A0,D4.L),D1
+080001CA  4881       355          ext.w     D1
+080001CC  48C1       356          ext.l     D1
+080001CE  2F01       357          move.l    D1,-(A7)
+080001D0  2F02       358          move.l    D2,-(A7)
+080001D2  2F03       359          move.l    D3,-(A7)
+080001D4  4EB9 0800  360          jsr       _putcharxy
+080001D8  0154      
+080001DA  DEFC 000C  361          add.w     #12,A7
+                     362   ; x_coord++;
+080001DE  5283       363          addq.l    #1,D3
+080001E0  6002       364          bra.s     print_at_xy_5
+                     365   print_at_xy_4:
+                     366   ; }
+                     367   ; else
+                     368   ; {
+                     369   ; end_of_str = 1;
+080001E2  7A01       370          moveq     #1,D5
+                     371   print_at_xy_5:
+                     372   ; }
+                     373   ; i++;
+080001E4  5284       374          addq.l    #1,D4
+080001E6  60B2       375          bra       print_at_xy_1
+                     376   print_at_xy_3:
+080001E8  4CDF 003C  377          movem.l   (A7)+,D2/D3/D4/D5
+080001EC  4E5E       378          unlk      A6
+080001EE  4E75       379          rts
+                     380   ; }
+                     381   ; }
+                     382   ; void cls()
+                     383   ; {
+                     384   _cls:
+080001F0  4E56 FFFC  385          link      A6,#-4
+080001F4  48E7 3000  386          movem.l   D2/D3,-(A7)
+                     387   ; //clear the screen
+                     388   ; int x;
+                     389   ; int y;
+                     390   ; char space = 0x20;
+080001F8  1D7C 0020  391          move.b    #32,-1(A6)
+080001FC  FFFF      
+                     392   ; for (y=0; y<NUM_VGA_ROWS; y++) {
+080001FE  4283       393          clr.l     D3
+                     394   cls_1:
+08000200  0C83 0000  395          cmp.l     #40,D3
+08000204  0028      
+08000206  6C2A       396          bge.s     cls_3
+                     397   ; for (x=0; x<NUM_VGA_COLUMNS; x++) {
+08000208  4282       398          clr.l     D2
+                     399   cls_4:
+0800020A  0C82 0000  400          cmp.l     #80,D2
+0800020E  0050      
+08000210  6C1C       401          bge.s     cls_6
+                     402   ; putcharxy(x,y,space);
+08000212  122E FFFF  403          move.b    -1(A6),D1
+08000216  4881       404          ext.w     D1
+08000218  48C1       405          ext.l     D1
+0800021A  2F01       406          move.l    D1,-(A7)
+0800021C  2F03       407          move.l    D3,-(A7)
+0800021E  2F02       408          move.l    D2,-(A7)
+08000220  4EB9 0800  409          jsr       _putcharxy
+08000224  0154      
+08000226  DEFC 000C  410          add.w     #12,A7
+0800022A  5282       411          addq.l    #1,D2
+0800022C  60DC       412          bra       cls_4
+                     413   cls_6:
+0800022E  5283       414          addq.l    #1,D3
+08000230  60CE       415          bra       cls_1
+                     416   cls_3:
+08000232  4CDF 000C  417          movem.l   (A7)+,D2/D3
+08000236  4E5E       418          unlk      A6
+08000238  4E75       419          rts
+                     420   ; }
+                     421   ; }
+                     422   ; };
+                     423   ; void gotoxy(int x, int y)
+                     424   ; {
+                     425   _gotoxy:
+0800023A  4E56 0000  426          link      A6,#0
+                     427   ; //move the cursor to location column = x, row = y
+                     428   ; vga_x_cursor_reg = x;
+0800023E  202E 0008  429          move.l    8(A6),D0
+08000242  13C0 0060  430          move.b    D0,6295552
+08000246  1000      
+                     431   ; vga_y_cursor_reg = y;
+08000248  202E 000C  432          move.l    12(A6),D0
+0800024C  13C0 0060  433          move.b    D0,6295554
+08000250  1002      
+08000252  4E5E       434          unlk      A6
+08000254  4E75       435          rts
+                     436   ; };
+                     437   ; void set_vga_control_reg(char x) {
+                     438   _set_vga_control_reg:
+08000256  4E56 0000  439          link      A6,#0
+                     440   ; //Set the VGA control (OCTL) value
+                     441   ; vga_ctrl_reg = x;
+0800025A  13EE 000B  442          move.b    11(A6),6295556
+0800025E  0060 1004 
+08000262  4E5E       443          unlk      A6
+08000264  4E75       444          rts
+                     445   ; }
+                     446   ; char get_vga_control_reg() {
+                     447   _get_vga_control_reg:
+08000266  4E56 FFFC  448          link      A6,#-4
+                     449   ; //return the VGA control (OCTL) value
+                     450   ; char value;
+                     451   ; value = vga_ctrl_reg;
+0800026A  1D79 0060  452          move.b    6295556,-1(A6)
+0800026E  1004 FFFF 
+                     453   ; return value;
+08000272  102E FFFF  454          move.b    -1(A6),D0
+08000276  4E5E       455          unlk      A6
+08000278  4E75       456          rts
+                     457   ; }
+                     458   ; int clock() {
+                     459   _clock:
+                     460   ; //return the current value of a milliseconds counter, with a resolution of 10ms or better
+                     461   ; if(Timer2Status == 1) {         // Did Timer 2 produce the Interrupt?
+0800027A  1039 0040  462          move.b    4194358,D0
+0800027E  0036      
+08000280  0C00 0001  463          cmp.b     #1,D0
+08000284  6612       464          bne.s     clock_1
+                     465   ; clock_counter = clock_counter +10;
+08000286  06B9 0000  466          add.l     #10,_clock_counter.L
+0800028A  000A 0800 
+0800028E  0D64      
+                     467   ; Timer2Control = 3;      	// reset the timer to clear the interrupt, enable interrupts and allow counter to run
+08000290  13FC 0003  468          move.b    #3,4194358
+08000294  0040 0036 
+                     469   clock_1:
+                     470   ; }
+                     471   ; return clock_counter;
+08000298  2039 0800  472          move.l    _clock_counter.L,D0
+0800029C  0D64      
+0800029E  4E75       473          rts
+                     474   ; }
+                     475   ; void delay_ms(int num_ms) {
+                     476   _delay_ms:
+080002A0  4E56 FFFC  477          link      A6,#-4
+                     478   ; //delay a certain number of milliseconds
+                     479   ; int initial_time;
+                     480   ; initial_time = clock();
+080002A4  4EB9 0800  481          jsr       _clock
+080002A8  027A      
+080002AA  2D40 FFFC  482          move.l    D0,-4(A6)
+                     483   ; while ((clock() - initial_time) < num_ms) {}
+                     484   delay_ms_1:
+080002AE  4EB9 0800  485          jsr       _clock
+080002B2  027A      
+080002B4  90AE FFFC  486          sub.l     -4(A6),D0
+080002B8  B0AE 0008  487          cmp.l     8(A6),D0
+080002BC  6C02       488          bge.s     delay_ms_3
+080002BE  60EE       489          bra       delay_ms_1
+                     490   delay_ms_3:
+080002C0  4E5E       491          unlk      A6
+080002C2  4E75       492          rts
+                     493   ; }
+                     494   ; void string_cursor(int x,
+                     495   ; int y,
+                     496   ; const char* str)
+                     497   ; {
+                     498   _string_cursor:
+080002C4  4E56 0000  499          link      A6,#0
+080002C8  48E7 3C30  500          movem.l   D2/D3/D4/D5/A2/A3,-(A7)
+080002CC  45F9 0800  501          lea       _gotoxy.L,A2
+080002D0  023A      
+080002D2  47F9 0800  502          lea       _delay_ms.L,A3
+080002D6  02A0      
+                     503   ; int end_of_str = 0;
+080002D8  4285       504          clr.l     D5
+                     505   ; int i = 0;
+080002DA  4284       506          clr.l     D4
+                     507   ; int x_coord = x;
+080002DC  262E 0008  508          move.l    8(A6),D3
+                     509   ; int y_coord = y;
+080002E0  242E 000C  510          move.l    12(A6),D2
+                     511   ; while (!end_of_str)
+                     512   string_cursor_1:
+080002E4  4A85       513          tst.l     D5
+080002E6  6600 0062  514          bne       string_cursor_3
+                     515   ; {
+                     516   ; if (*(str+i) != '\0')
+080002EA  206E 0010  517          move.l    16(A6),A0
+080002EE  1030 4800  518          move.b    0(A0,D4.L),D0
+080002F2  6700 0050  519          beq       string_cursor_4
+                     520   ; {   
+                     521   ; if (x_coord > NUM_VGA_COLUMNS-1) { //Wrap around to the next line if we reach the edge of the screen
+080002F6  0C83 0000  522          cmp.l     #79,D3
+080002FA  004F      
+080002FC  6F04       523          ble.s     string_cursor_6
+                     524   ; x_coord = 0;
+080002FE  4283       525          clr.l     D3
+                     526   ; y_coord++;
+08000300  5282       527          addq.l    #1,D2
+                     528   string_cursor_6:
+                     529   ; }
+                     530   ; if (y_coord > NUM_VGA_ROWS-1) {
+08000302  0C82 0000  531          cmp.l     #39,D2
+08000306  0027      
+08000308  6F02       532          ble.s     string_cursor_8
+                     533   ; y_coord = 0;
+0800030A  4282       534          clr.l     D2
+                     535   string_cursor_8:
+                     536   ; }
+                     537   ; putcharxy(x_coord,y_coord, *(str+i));
+0800030C  206E 0010  538          move.l    16(A6),A0
+08000310  1230 4800  539          move.b    0(A0,D4.L),D1
+08000314  4881       540          ext.w     D1
+08000316  48C1       541          ext.l     D1
+08000318  2F01       542          move.l    D1,-(A7)
+0800031A  2F02       543          move.l    D2,-(A7)
+0800031C  2F03       544          move.l    D3,-(A7)
+0800031E  4EB9 0800  545          jsr       _putcharxy
+08000322  0154      
+08000324  DEFC 000C  546          add.w     #12,A7
+                     547   ; delay_ms(100);
+08000328  4878 0064  548          pea       100
+0800032C  4E93       549          jsr       (A3)
+0800032E  584F       550          addq.w    #4,A7
+                     551   ; gotoxy(x_coord,y_coord);
+08000330  2F02       552          move.l    D2,-(A7)
+08000332  2F03       553          move.l    D3,-(A7)
+08000334  4E92       554          jsr       (A2)
+08000336  504F       555          addq.w    #8,A7
+                     556   ; delay_ms(100);
+08000338  4878 0064  557          pea       100
+0800033C  4E93       558          jsr       (A3)
+0800033E  584F       559          addq.w    #4,A7
+                     560   ; x_coord++;
+08000340  5283       561          addq.l    #1,D3
+08000342  6002       562          bra.s     string_cursor_5
+                     563   string_cursor_4:
+                     564   ; }
+                     565   ; else
+                     566   ; {
+                     567   ; end_of_str = 1;
+08000344  7A01       568          moveq     #1,D5
+                     569   string_cursor_5:
+                     570   ; }
+                     571   ; i++;
+08000346  5284       572          addq.l    #1,D4
+08000348  609A       573          bra       string_cursor_1
+                     574   string_cursor_3:
+                     575   ; }
+                     576   ; gotoxy(x_coord,y_coord);
+0800034A  2F02       577          move.l    D2,-(A7)
+0800034C  2F03       578          move.l    D3,-(A7)
+0800034E  4E92       579          jsr       (A2)
+08000350  504F       580          addq.w    #8,A7
+                     581   ; delay_ms(100);
+08000352  4878 0064  582          pea       100
+08000356  4E93       583          jsr       (A3)
+08000358  584F       584          addq.w    #4,A7
+                     585   ; gotoxy(x_coord+1,y_coord);
+0800035A  2F02       586          move.l    D2,-(A7)
+0800035C  2203       587          move.l    D3,D1
+0800035E  5281       588          addq.l    #1,D1
+08000360  2F01       589          move.l    D1,-(A7)
+08000362  4E92       590          jsr       (A2)
+08000364  504F       591          addq.w    #8,A7
+08000366  4CDF 0C3C  592          movem.l   (A7)+,D2/D3/D4/D5/A2/A3
+0800036A  4E5E       593          unlk      A6
+0800036C  4E75       594          rts
+                     595   ; }
+                     596   ; void int_to_str (char* str, int num)
+                     597   ; {   
+                     598   _int_to_str:
+0800036E  4E56 FFFC  599          link      A6,#-4
+08000372  48E7 3E00  600          movem.l   D2/D3/D4/D5/D6,-(A7)
+08000376  262E 0008  601          move.l    8(A6),D3
+0800037A  2A2E 000C  602          move.l    12(A6),D5
+                     603   ; int i = 0, j, sign;
+0800037E  4284       604          clr.l     D4
+                     605   ; // handle negative numbers
+                     606   ; if (num < 0) {
+08000380  0C85 0000  607          cmp.l     #0,D5
+08000384  0000      
+08000386  6C0A       608          bge.s     int_to_str_1
+                     609   ; sign = -1;
+08000388  7CFF       610          moveq     #-1,D6
+                     611   ; num = -num;
+0800038A  2005       612          move.l    D5,D0
+0800038C  4480       613          neg.l     D0
+0800038E  2A00       614          move.l    D0,D5
+08000390  6002       615          bra.s     int_to_str_2
+                     616   int_to_str_1:
+                     617   ; }
+                     618   ; else {
+                     619   ; sign = 1;
+08000392  7C01       620          moveq     #1,D6
+                     621   int_to_str_2:
+                     622   ; }
+                     623   ; // convert each digit of the number to a character and store in the buffer
+                     624   ; do {
+                     625   int_to_str_3:
+                     626   ; str[i++] = num % 10 + '0';
+08000394  2F05       627          move.l    D5,-(A7)
+08000396  4878 000A  628          pea       10
+0800039A  4EB9 0800  629          jsr       LDIV
+0800039E  0BC6      
+080003A0  202F 0004  630          move.l    4(A7),D0
+080003A4  504F       631          addq.w    #8,A7
+080003A6  0680 0000  632          add.l     #48,D0
+080003AA  0030      
+080003AC  2043       633          move.l    D3,A0
+080003AE  2204       634          move.l    D4,D1
+080003B0  5284       635          addq.l    #1,D4
+080003B2  1180 1800  636          move.b    D0,0(A0,D1.L)
+080003B6  2F05       637          move.l    D5,-(A7)
+080003B8  4878 000A  638          pea       10
+080003BC  4EB9 0800  639          jsr       LDIV
+080003C0  0BC6      
+080003C2  2A17       640          move.l    (A7),D5
+080003C4  504F       641          addq.w    #8,A7
+080003C6  0C85 0000  642          cmp.l     #0,D5
+080003CA  0000      
+080003CC  6EC6       643          bgt       int_to_str_3
+                     644   ; } while ((num /= 10) > 0);
+                     645   ; // add the negative sign if necessary
+                     646   ; if (sign == -1) {
+080003CE  0C86 FFFF  647          cmp.l     #-1,D6
+080003D2  FFFF      
+080003D4  660C       648          bne.s     int_to_str_5
+                     649   ; str[i++] = '-';
+080003D6  2043       650          move.l    D3,A0
+080003D8  2004       651          move.l    D4,D0
+080003DA  5284       652          addq.l    #1,D4
+080003DC  11BC 002D  653          move.b    #45,0(A0,D0.L)
+080003E0  0800      
+                     654   int_to_str_5:
+                     655   ; }
+                     656   ; // reverse the string
+                     657   ; for (j = 0; j < i / 2; j++) {
+080003E2  4282       658          clr.l     D2
+                     659   int_to_str_7:
+080003E4  2F04       660          move.l    D4,-(A7)
+080003E6  4878 0002  661          pea       2
+080003EA  4EB9 0800  662          jsr       LDIV
+080003EE  0BC6      
+080003F0  2017       663          move.l    (A7),D0
+080003F2  504F       664          addq.w    #8,A7
+080003F4  B480       665          cmp.l     D0,D2
+080003F6  6C2A       666          bge.s     int_to_str_9
+                     667   ; char temp = str[j];
+080003F8  2043       668          move.l    D3,A0
+080003FA  1D70 2800  669          move.b    0(A0,D2.L),-1(A6)
+080003FE  FFFF      
+                     670   ; str[j] = str[i - j - 1];
+08000400  2043       671          move.l    D3,A0
+08000402  2004       672          move.l    D4,D0
+08000404  9082       673          sub.l     D2,D0
+08000406  5380       674          subq.l    #1,D0
+08000408  2243       675          move.l    D3,A1
+0800040A  13B0 0800  676          move.b    0(A0,D0.L),0(A1,D2.L)
+0800040E  2800      
+                     677   ; str[i - j - 1] = temp;
+08000410  2043       678          move.l    D3,A0
+08000412  2004       679          move.l    D4,D0
+08000414  9082       680          sub.l     D2,D0
+08000416  5380       681          subq.l    #1,D0
+08000418  11AE FFFF  682          move.b    -1(A6),0(A0,D0.L)
+0800041C  0800      
+0800041E  5282       683          addq.l    #1,D2
+08000420  60C2       684          bra       int_to_str_7
+                     685   int_to_str_9:
+                     686   ; }
+                     687   ; // add null terminator to the end of the string
+                     688   ; str[i] = '\0';
+08000422  2043       689          move.l    D3,A0
+08000424  4230 4800  690          clr.b     0(A0,D4.L)
+08000428  4CDF 007C  691          movem.l   (A7)+,D2/D3/D4/D5/D6
+0800042C  4E5E       692          unlk      A6
+0800042E  4E75       693          rts
+                     694   ; }
+                     695   ; void gameOver()
+                     696   ; {
+                     697   _gameOver:
+08000430  4E56 FFEC  698          link      A6,#-20
+08000434  48E7 2030  699          movem.l   D2/A2/A3,-(A7)
+08000438  45F9 0800  700          lea       _string_cursor.L,A2
+0800043C  02C4      
+0800043E  47F9 0800  701          lea       _delay_ms.L,A3
+08000442  02A0      
+                     702   ; //show game over screen and animation
+                     703   ; char score_str[20];
+                     704   ; unsigned int color = 2;
+08000444  7402       705          moveq     #2,D2
+                     706   ; int_to_str(score_str, score);
+08000446  2F39 0800  707          move.l    _score.L,-(A7)
+0800044A  0D5C      
+0800044C  486E FFEC  708          pea       -20(A6)
+08000450  4EB9 0800  709          jsr       _int_to_str
+08000454  036E      
+08000456  504F       710          addq.w    #8,A7
+                     711   ; cls();
+08000458  4EB9 0800  712          jsr       _cls
+0800045C  01F0      
+                     713   ; gotoxy(35,18);
+0800045E  4878 0012  714          pea       18
+08000462  4878 0023  715          pea       35
+08000466  4EB9 0800  716          jsr       _gotoxy
+0800046A  023A      
+0800046C  504F       717          addq.w    #8,A7
+                     718   ; set_vga_control_reg(0xe2);
+0800046E  4878 00E2  719          pea       226
+08000472  4EB9 0800  720          jsr       _set_vga_control_reg
+08000476  0256      
+08000478  584F       721          addq.w    #4,A7
+                     722   ; delay_ms(500);
+0800047A  4878 01F4  723          pea       500
+0800047E  4E93       724          jsr       (A3)
+08000480  584F       725          addq.w    #4,A7
+                     726   ; putcharxy(35,18,'G');
+08000482  4878 0047  727          pea       71
+08000486  4878 0012  728          pea       18
+0800048A  4878 0023  729          pea       35
+0800048E  4EB9 0800  730          jsr       _putcharxy
+08000492  0154      
+08000494  DEFC 000C  731          add.w     #12,A7
+                     732   ; delay_ms(100);
+08000498  4878 0064  733          pea       100
+0800049C  4E93       734          jsr       (A3)
+0800049E  584F       735          addq.w    #4,A7
+                     736   ; string_cursor(36,18, "ame Over!");
+080004A0  4879 0800  737          pea       @snake_1.L
+080004A4  0D32      
+080004A6  4878 0012  738          pea       18
+080004AA  4878 0024  739          pea       36
+080004AE  4E92       740          jsr       (A2)
+080004B0  DEFC 000C  741          add.w     #12,A7
+                     742   ; string_cursor(35,20, "Score: ");
+080004B4  4879 0800  743          pea       @snake_2.L
+080004B8  0D3C      
+080004BA  4878 0014  744          pea       20
+080004BE  4878 0023  745          pea       35
+080004C2  4E92       746          jsr       (A2)
+080004C4  DEFC 000C  747          add.w     #12,A7
+                     748   ; string_cursor(42,20, score_str);
+080004C8  486E FFEC  749          pea       -20(A6)
+080004CC  4878 0014  750          pea       20
+080004D0  4878 002A  751          pea       42
+080004D4  4E92       752          jsr       (A2)
+080004D6  DEFC 000C  753          add.w     #12,A7
+                     754   ; //gotoxy(45,20);
+                     755   ; while (1)
+                     756   gameOver_1:
+                     757   ; {   
+                     758   ; delay_ms(1500);
+080004DA  4878 05DC  759          pea       1500
+080004DE  4E93       760          jsr       (A3)
+080004E0  584F       761          addq.w    #4,A7
+                     762   ; color = (color+1) & 7; // extract the color bits
+080004E2  2002       763          move.l    D2,D0
+080004E4  5280       764          addq.l    #1,D0
+080004E6  C0BC 0000  765          and.l     #7,D0
+080004EA  0007      
+080004EC  2400       766          move.l    D0,D2
+                     767   ; if (color == 0)
+080004EE  4A82       768          tst.l     D2
+080004F0  6602       769          bne.s     gameOver_4
+                     770   ; {
+                     771   ; color = 1;
+080004F2  7401       772          moveq     #1,D2
+                     773   gameOver_4:
+                     774   ; }
+                     775   ; set_vga_control_reg((0xe0 | color));
+080004F4  323C 00E0  776          move.w    #224,D1
+080004F8  48C1       777          ext.l     D1
+080004FA  8282       778          or.l      D2,D1
+080004FC  4881       779          ext.w     D1
+080004FE  48C1       780          ext.l     D1
+08000500  2F01       781          move.l    D1,-(A7)
+08000502  4EB9 0800  782          jsr       _set_vga_control_reg
+08000506  0256      
+08000508  584F       783          addq.w    #4,A7
+0800050A  60CE       784          bra       gameOver_1
+                     785   ; }
+                     786   ; }
+                     787   ; void updateScore()
+                     788   ; {
+                     789   _updateScore:
+0800050C  4E56 FFEC  790          link      A6,#-20
+                     791   ; //print the score at the bottom of the screen
+                     792   ; char score_str[20];
+                     793   ; int_to_str(score_str, score);
+08000510  2F39 0800  794          move.l    _score.L,-(A7)
+08000514  0D5C      
+08000516  486E FFEC  795          pea       -20(A6)
+0800051A  4EB9 0800  796          jsr       _int_to_str
+0800051E  036E      
+08000520  504F       797          addq.w    #8,A7
+                     798   ; print_at_xy(0,NUM_VGA_ROWS-1, "Score: ");
+08000522  4879 0800  799          pea       @snake_2.L
+08000526  0D3C      
+08000528  4878 0027  800          pea       39
+0800052C  42A7       801          clr.l     -(A7)
+0800052E  4EB9 0800  802          jsr       _print_at_xy
+08000532  0186      
+08000534  DEFC 000C  803          add.w     #12,A7
+                     804   ; print_at_xy(7,NUM_VGA_ROWS-1, score_str);
+08000538  486E FFEC  805          pea       -20(A6)
+0800053C  4878 0027  806          pea       39
+08000540  4878 0007  807          pea       7
+08000544  4EB9 0800  808          jsr       _print_at_xy
+08000548  0186      
+0800054A  DEFC 000C  809          add.w     #12,A7
+0800054E  4E5E       810          unlk      A6
+08000550  4E75       811          rts
+                     812   ; }
+                     813   ; void drawRect(int x, int y, int x2, int y2, char ch)
+                     814   ; {
+                     815   _drawRect:
+08000552  4E56 0000  816          link      A6,#0
+08000556  48E7 3E20  817          movem.l   D2/D3/D4/D5/D6/A2,-(A7)
+0800055A  282E 000C  818          move.l    12(A6),D4
+0800055E  1A2E 001B  819          move.b    27(A6),D5
+08000562  4885       820          ext.w     D5
+08000564  48C5       821          ext.l     D5
+08000566  45F9 0800  822          lea       _putcharxy.L,A2
+0800056A  0154      
+0800056C  2C2E 0008  823          move.l    8(A6),D6
+                     824   ; //draws a rectangle. Left top corner: (x1,y1) length of sides = x2,y2
+                     825   ; int x_pos,y_pos;
+                     826   ; // draw horizontal edges
+                     827   ; for (x_pos = x; x_pos < x+x2; x_pos++)
+08000570  2606       828          move.l    D6,D3
+                     829   drawRect_1:
+08000572  2006       830          move.l    D6,D0
+08000574  D0AE 0010  831          add.l     16(A6),D0
+08000578  B680       832          cmp.l     D0,D3
+0800057A  6C00 002E  833          bge       drawRect_3
+                     834   ; {
+                     835   ; putcharxy(x_pos,y,ch);
+0800057E  4885       836          ext.w     D5
+08000580  48C5       837          ext.l     D5
+08000582  2F05       838          move.l    D5,-(A7)
+08000584  2F04       839          move.l    D4,-(A7)
+08000586  2F03       840          move.l    D3,-(A7)
+08000588  4E92       841          jsr       (A2)
+0800058A  DEFC 000C  842          add.w     #12,A7
+                     843   ; putcharxy(x_pos,y+y2-1,ch);
+0800058E  4885       844          ext.w     D5
+08000590  48C5       845          ext.l     D5
+08000592  2F05       846          move.l    D5,-(A7)
+08000594  2204       847          move.l    D4,D1
+08000596  D2AE 0014  848          add.l     20(A6),D1
+0800059A  5381       849          subq.l    #1,D1
+0800059C  2F01       850          move.l    D1,-(A7)
+0800059E  2F03       851          move.l    D3,-(A7)
+080005A0  4E92       852          jsr       (A2)
+080005A2  DEFC 000C  853          add.w     #12,A7
+080005A6  5283       854          addq.l    #1,D3
+080005A8  60C8       855          bra       drawRect_1
+                     856   drawRect_3:
+                     857   ; }
+                     858   ; // draw vertial edges
+                     859   ; for (y_pos = y; y_pos < y+y2-1; y_pos++)
+080005AA  2404       860          move.l    D4,D2
+                     861   drawRect_4:
+080005AC  2004       862          move.l    D4,D0
+080005AE  D0AE 0014  863          add.l     20(A6),D0
+080005B2  5380       864          subq.l    #1,D0
+080005B4  B480       865          cmp.l     D0,D2
+080005B6  6C00 002E  866          bge       drawRect_6
+                     867   ; {
+                     868   ; putcharxy(x,y_pos,ch);
+080005BA  4885       869          ext.w     D5
+080005BC  48C5       870          ext.l     D5
+080005BE  2F05       871          move.l    D5,-(A7)
+080005C0  2F02       872          move.l    D2,-(A7)
+080005C2  2F06       873          move.l    D6,-(A7)
+080005C4  4E92       874          jsr       (A2)
+080005C6  DEFC 000C  875          add.w     #12,A7
+                     876   ; putcharxy(x+x2-1,y_pos,ch);
+080005CA  4885       877          ext.w     D5
+080005CC  48C5       878          ext.l     D5
+080005CE  2F05       879          move.l    D5,-(A7)
+080005D0  2F02       880          move.l    D2,-(A7)
+080005D2  2206       881          move.l    D6,D1
+080005D4  D2AE 0010  882          add.l     16(A6),D1
+080005D8  5381       883          subq.l    #1,D1
+080005DA  2F01       884          move.l    D1,-(A7)
+080005DC  4E92       885          jsr       (A2)
+080005DE  DEFC 000C  886          add.w     #12,A7
+080005E2  5282       887          addq.l    #1,D2
+080005E4  60C6       888          bra       drawRect_4
+                     889   drawRect_6:
+080005E6  4CDF 047C  890          movem.l   (A7)+,D2/D3/D4/D5/D6/A2
+080005EA  4E5E       891          unlk      A6
+080005EC  4E75       892          rts
+                     893   ; }
+                     894   ; }
+                     895   ; void initSnake()
+                     896   ; {
+                     897   _initSnake:
+                     898   ; Snake.speed          = INITIAL_SNAKE_SPEED ;         
+080005EE  23FC 0000  899          move.l    #2,_Snake+16390.L
+080005F2  0002 0800 
+080005F6  4D6E      
+                     900   ; Snake.speed_increase = SNAKE_SPEED_INCREASE;
+080005F8  23FC 0000  901          move.l    #1,_Snake+16394.L
+080005FC  0001 0800 
+08000600  4D72      
+08000602  4E75       902          rts
+                     903   ; }
+                     904   ; void drawSnake()
+                     905   ; {
+                     906   _drawSnake:
+08000604  48E7 2020  907          movem.l   D2/A2,-(A7)
+08000608  45F9 0800  908          lea       _Snake.L,A2
+0800060C  0D68      
+                     909   ; int i;
+                     910   ; for(i = 0; i < Snake.length; i++)
+0800060E  4282       911          clr.l     D2
+                     912   drawSnake_1:
+08000610  B4AA 4000  913          cmp.l     16384(A2),D2
+08000614  6C26       914          bge.s     drawSnake_3
+                     915   ; {
+                     916   ; putcharxy(Snake.xy[i].x, Snake.xy[i].y,SNAKE);
+08000616  4878 0053  917          pea       83
+0800061A  2202       918          move.l    D2,D1
+0800061C  E789       919          lsl.l     #3,D1
+0800061E  41F2 1800  920          lea       0(A2,D1.L),A0
+08000622  2F28 0004  921          move.l    4(A0),-(A7)
+08000626  2202       922          move.l    D2,D1
+08000628  E789       923          lsl.l     #3,D1
+0800062A  2F32 1800  924          move.l    0(A2,D1.L),-(A7)
+0800062E  4EB9 0800  925          jsr       _putcharxy
+08000632  0154      
+08000634  DEFC 000C  926          add.w     #12,A7
+08000638  5282       927          addq.l    #1,D2
+0800063A  60D4       928          bra       drawSnake_1
+                     929   drawSnake_3:
+0800063C  4CDF 0404  930          movem.l   (A7)+,D2/A2
+08000640  4E75       931          rts
+                     932   ; }
+                     933   ; }
+                     934   ; void drawFood()
+                     935   ; {
+                     936   _drawFood:
+                     937   ; putcharxy(Snake.food.x, Snake.food.y,FOOD);
+08000642  4878 0040  938          pea       64
+08000646  2F39 0800  939          move.l    _Snake+16402.L,-(A7)
+0800064A  4D7A      
+0800064C  2F39 0800  940          move.l    _Snake+16398.L,-(A7)
+08000650  4D76      
+08000652  4EB9 0800  941          jsr       _putcharxy
+08000656  0154      
+08000658  DEFC 000C  942          add.w     #12,A7
+0800065C  4E75       943          rts
+                     944   ; }
+                     945   ; void moveSnake()//remove tail, move array, add new head based on direction
+                     946   ; {
+                     947   _moveSnake:
+0800065E  48E7 3820  948          movem.l   D2/D3/D4/A2,-(A7)
+08000662  45F9 0800  949          lea       _Snake.L,A2
+08000666  0D68      
+                     950   ; int i;
+                     951   ; int x;
+                     952   ; int y;
+                     953   ; x = Snake.xy[0].x;
+08000668  2612       954          move.l    (A2),D3
+                     955   ; y = Snake.xy[0].y;
+0800066A  242A 0004  956          move.l    4(A2),D2
+                     957   ; //saves initial head for direction determination
+                     958   ; putcharxy(Snake.xy[Snake.length-1].x, Snake.xy[Snake.length-1].y,' ');
+0800066E  4878 0020  959          pea       32
+08000672  222A 4000  960          move.l    16384(A2),D1
+08000676  5381       961          subq.l    #1,D1
+08000678  E789       962          lsl.l     #3,D1
+0800067A  41F2 1800  963          lea       0(A2,D1.L),A0
+0800067E  2F28 0004  964          move.l    4(A0),-(A7)
+08000682  222A 4000  965          move.l    16384(A2),D1
+08000686  5381       966          subq.l    #1,D1
+08000688  E789       967          lsl.l     #3,D1
+0800068A  2F32 1800  968          move.l    0(A2,D1.L),-(A7)
+0800068E  4EB9 0800  969          jsr       _putcharxy
+08000692  0154      
+08000694  DEFC 000C  970          add.w     #12,A7
+                     971   ; for(i = Snake.length; i > 1; i--)
+08000698  282A 4000  972          move.l    16384(A2),D4
+                     973   moveSnake_1:
+0800069C  0C84 0000  974          cmp.l     #1,D4
+080006A0  0001      
+080006A2  6F00 0022  975          ble       moveSnake_3
+                     976   ; {
+                     977   ; Snake.xy[i-1] = Snake.xy[i-2];
+080006A6  200A       978          move.l    A2,D0
+080006A8  2204       979          move.l    D4,D1
+080006AA  5381       980          subq.l    #1,D1
+080006AC  E789       981          lsl.l     #3,D1
+080006AE  D081       982          add.l     D1,D0
+080006B0  2040       983          move.l    D0,A0
+080006B2  200A       984          move.l    A2,D0
+080006B4  2204       985          move.l    D4,D1
+080006B6  5581       986          subq.l    #2,D1
+080006B8  E789       987          lsl.l     #3,D1
+080006BA  D081       988          add.l     D1,D0
+080006BC  2240       989          move.l    D0,A1
+080006BE  20D9       990          move.l    (A1)+,(A0)+
+080006C0  20D9       991          move.l    (A1)+,(A0)+
+080006C2  5384       992          subq.l    #1,D4
+080006C4  60D6       993          bra       moveSnake_1
+                     994   moveSnake_3:
+                     995   ; }
+                     996   ; //moves the snake array to the right
+                     997   ; switch (Snake.direction)
+080006C6  302A 4004  998          move.w    16388(A2),D0
+080006CA  48C0       999          ext.l     D0
+080006CC  0C80 0000 1000          cmp.l     #4,D0
+080006D0  0004      
+080006D2  6400 0046 1001          bhs       moveSnake_4
+080006D6  E380      1002          asl.l     #1,D0
+080006D8  303B 0806 1003          move.w    moveSnake_6(PC,D0.L),D0
+080006DC  4EFB 0002 1004          jmp       moveSnake_6(PC,D0.W)
+                    1005   moveSnake_6:
+080006E0  0008      1006          dc.w      moveSnake_7-moveSnake_6
+080006E2  0014      1007          dc.w      moveSnake_8-moveSnake_6
+080006E4  0020      1008          dc.w      moveSnake_9-moveSnake_6
+080006E6  002C      1009          dc.w      moveSnake_10-moveSnake_6
+                    1010   moveSnake_7:
+                    1011   ; {
+                    1012   ; case north:
+                    1013   ; if (y > 0)  { y--; }
+080006E8  0C82 0000 1014          cmp.l     #0,D2
+080006EC  0000      
+080006EE  6F02      1015          ble.s     moveSnake_12
+080006F0  5382      1016          subq.l    #1,D2
+                    1017   moveSnake_12:
+                    1018   ; break;
+080006F2  6026      1019          bra.s     moveSnake_5
+                    1020   moveSnake_8:
+                    1021   ; case south:
+                    1022   ; if (y < (NUM_VGA_ROWS-1)) { y++; }
+080006F4  0C82 0000 1023          cmp.l     #39,D2
+080006F8  0027      
+080006FA  6C02      1024          bge.s     moveSnake_14
+080006FC  5282      1025          addq.l    #1,D2
+                    1026   moveSnake_14:
+                    1027   ; break;
+080006FE  601A      1028          bra.s     moveSnake_5
+                    1029   moveSnake_9:
+                    1030   ; case west:
+                    1031   ; if (x > 0) { x--; }
+08000700  0C83 0000 1032          cmp.l     #0,D3
+08000704  0000      
+08000706  6F02      1033          ble.s     moveSnake_16
+08000708  5383      1034          subq.l    #1,D3
+                    1035   moveSnake_16:
+                    1036   ; break;
+0800070A  600E      1037          bra.s     moveSnake_5
+                    1038   moveSnake_10:
+                    1039   ; case east:
+                    1040   ; if (x < (NUM_VGA_COLUMNS-1))  { x++; }
+0800070C  0C83 0000 1041          cmp.l     #79,D3
+08000710  004F      
+08000712  6C02      1042          bge.s     moveSnake_18
+08000714  5283      1043          addq.l    #1,D3
+                    1044   moveSnake_18:
+                    1045   ; break;
+08000716  6000 0002 1046          bra       moveSnake_5
+                    1047   moveSnake_4:
+                    1048   ; default:
+                    1049   ; break;
+                    1050   moveSnake_5:
+                    1051   ; }
+                    1052   ; //adds new snake head
+                    1053   ; Snake.xy[0].x = x;
+0800071A  2483      1054          move.l    D3,(A2)
+                    1055   ; Snake.xy[0].y = y;
+0800071C  2542 0004 1056          move.l    D2,4(A2)
+                    1057   ; waiting_for_direction_to_be_implemented = 0;
+08000720  42B9 0800 1058          clr.l     _waiting_for_direction_to_be_imp.L
+08000724  4D7E      
+                    1059   ; putcharxy(Snake.xy[0].x,Snake.xy[0].y,SNAKE);
+08000726  4878 0053 1060          pea       83
+0800072A  2F2A 0004 1061          move.l    4(A2),-(A7)
+0800072E  2F12      1062          move.l    (A2),-(A7)
+08000730  4EB9 0800 1063          jsr       _putcharxy
+08000734  0154      
+08000736  DEFC 000C 1064          add.w     #12,A7
+0800073A  4CDF 041C 1065          movem.l   (A7)+,D2/D3/D4/A2
+0800073E  4E75      1066          rts
+                    1067   ; }
+                    1068   ; /* Compute x mod y using binary long division. */
+                    1069   ; int mod_bld(int x, int y)
+                    1070   ; {
+                    1071   _mod_bld:
+08000740  4E56 0000 1072          link      A6,#0
+08000744  48E7 3000 1073          movem.l   D2/D3,-(A7)
+                    1074   ; int modulus = x, divisor = y;
+08000748  262E 0008 1075          move.l    8(A6),D3
+0800074C  242E 000C 1076          move.l    12(A6),D2
+                    1077   ; while (divisor <= modulus && divisor <= 16384)
+                    1078   mod_bld_1:
+08000750  B483      1079          cmp.l     D3,D2
+08000752  6E0C      1080          bgt.s     mod_bld_3
+08000754  0C82 0000 1081          cmp.l     #16384,D2
+08000758  4000      
+0800075A  6E04      1082          bgt.s     mod_bld_3
+                    1083   ; divisor <<= 1;
+0800075C  E382      1084          asl.l     #1,D2
+0800075E  60F0      1085          bra       mod_bld_1
+                    1086   mod_bld_3:
+                    1087   ; while (modulus >= y) {
+                    1088   mod_bld_4:
+08000760  B6AE 000C 1089          cmp.l     12(A6),D3
+08000764  6D0C      1090          blt.s     mod_bld_6
+                    1091   ; while (divisor > modulus)
+                    1092   mod_bld_7:
+08000766  B483      1093          cmp.l     D3,D2
+08000768  6F04      1094          ble.s     mod_bld_9
+                    1095   ; divisor >>= 1;
+0800076A  E282      1096          asr.l     #1,D2
+0800076C  60F8      1097          bra       mod_bld_7
+                    1098   mod_bld_9:
+                    1099   ; modulus -= divisor;
+0800076E  9682      1100          sub.l     D2,D3
+08000770  60EE      1101          bra       mod_bld_4
+                    1102   mod_bld_6:
+                    1103   ; }
+                    1104   ; return modulus;
+08000772  2003      1105          move.l    D3,D0
+08000774  4CDF 000C 1106          movem.l   (A7)+,D2/D3
+08000778  4E5E      1107          unlk      A6
+0800077A  4E75      1108          rts
+                    1109   ; }
+                    1110   ; void generateFood()
+                    1111   ; {
+                    1112   _generateFood:
+0800077C  48E7 3020 1113          movem.l   D2/D3/A2,-(A7)
+08000780  45F9 0800 1114          lea       _Snake.L,A2
+08000784  0D68      
+                    1115   ; int bol;
+                    1116   ; int i;
+                    1117   ; static int firsttime = 1;
+                    1118   ; //removes last food
+                    1119   ; if (!firsttime) {
+08000786  4AB9 0800 1120          tst.l     generateFood_firsttime.L
+0800078A  0D58      
+0800078C  6618      1121          bne.s     generateFood_2
+                    1122   ; putcharxy(Snake.food.x,Snake.food.y,' ');
+0800078E  4878 0020 1123          pea       32
+08000792  2F2A 4012 1124          move.l    16402(A2),-(A7)
+08000796  2F2A 400E 1125          move.l    16398(A2),-(A7)
+0800079A  4EB9 0800 1126          jsr       _putcharxy
+0800079E  0154      
+080007A0  DEFC 000C 1127          add.w     #12,A7
+080007A4  6006      1128          bra.s     generateFood_3
+                    1129   generateFood_2:
+                    1130   ; } else {
+                    1131   ; firsttime = 0;
+080007A6  42B9 0800 1132          clr.l     generateFood_firsttime.L
+080007AA  0D58      
+                    1133   generateFood_3:
+                    1134   ; }
+                    1135   ; do
+                    1136   ; {
+                    1137   generateFood_4:
+                    1138   ; bol = 0;
+080007AC  4283      1139          clr.l     D3
+                    1140   ; //pseudo-randomly set food location
+                    1141   ; //use clock instead of random function that is
+                    1142   ; //not implemented in ide68k
+                    1143   ; Snake.food.x = 3+ mod_bld(((clock()& 0xFFF0) >> 4),screensize.x-6); 
+080007AE  7003      1144          moveq     #3,D0
+080007B0  4880      1145          ext.w     D0
+080007B2  48C0      1146          ext.l     D0
+080007B4  2F00      1147          move.l    D0,-(A7)
+080007B6  2039 0800 1148          move.l    _screensize.L,D0
+080007BA  0D44      
+080007BC  5D80      1149          subq.l    #6,D0
+080007BE  2F00      1150          move.l    D0,-(A7)
+080007C0  2F01      1151          move.l    D1,-(A7)
+080007C2  4EB9 0800 1152          jsr       _clock
+080007C6  027A      
+080007C8  221F      1153          move.l    (A7)+,D1
+080007CA  C0BC 0000 1154          and.l     #65520,D0
+080007CE  FFF0      
+080007D0  E880      1155          asr.l     #4,D0
+080007D2  2F00      1156          move.l    D0,-(A7)
+080007D4  4EB9 0800 1157          jsr       _mod_bld
+080007D8  0740      
+080007DA  504F      1158          addq.w    #8,A7
+080007DC  2200      1159          move.l    D0,D1
+080007DE  201F      1160          move.l    (A7)+,D0
+080007E0  D081      1161          add.l     D1,D0
+080007E2  2540 400E 1162          move.l    D0,16398(A2)
+                    1163   ; Snake.food.y = 3+ mod_bld(clock()& 0xFFFF,screensize.y-6); 
+080007E6  7003      1164          moveq     #3,D0
+080007E8  4880      1165          ext.w     D0
+080007EA  48C0      1166          ext.l     D0
+080007EC  2F00      1167          move.l    D0,-(A7)
+080007EE  2F00      1168          move.l    D0,-(A7)
+080007F0  2039 0800 1169          move.l    _screensize+4.L,D0
+080007F4  0D48      
+080007F6  5D80      1170          subq.l    #6,D0
+080007F8  2F00      1171          move.l    D0,-(A7)
+080007FA  2F01      1172          move.l    D1,-(A7)
+080007FC  4EB9 0800 1173          jsr       _clock
+08000800  027A      
+08000802  221F      1174          move.l    (A7)+,D1
+08000804  C0BC 0000 1175          and.l     #65535,D0
+08000808  FFFF      
+0800080A  2F00      1176          move.l    D0,-(A7)
+0800080C  4EB9 0800 1177          jsr       _mod_bld
+08000810  0740      
+08000812  504F      1178          addq.w    #8,A7
+08000814  2200      1179          move.l    D0,D1
+08000816  201F      1180          move.l    (A7)+,D0
+08000818  201F      1181          move.l    (A7)+,D0
+0800081A  D081      1182          add.l     D1,D0
+0800081C  2540 4012 1183          move.l    D0,16402(A2)
+                    1184   ; for(i = 0; i < Snake.length; i++)
+08000820  4282      1185          clr.l     D2
+                    1186   generateFood_6:
+08000822  B4AA 4000 1187          cmp.l     16384(A2),D2
+08000826  6C26      1188          bge.s     generateFood_8
+                    1189   ; {
+                    1190   ; if (Snake.food.x == Snake.xy[i].x && Snake.food.y == Snake.xy[i].y) {
+08000828  2002      1191          move.l    D2,D0
+0800082A  E788      1192          lsl.l     #3,D0
+0800082C  222A 400E 1193          move.l    16398(A2),D1
+08000830  B2B2 0800 1194          cmp.l     0(A2,D0.L),D1
+08000834  6614      1195          bne.s     generateFood_9
+08000836  2002      1196          move.l    D2,D0
+08000838  E788      1197          lsl.l     #3,D0
+0800083A  41F2 0800 1198          lea       0(A2,D0.L),A0
+0800083E  202A 4012 1199          move.l    16402(A2),D0
+08000842  B0A8 0004 1200          cmp.l     4(A0),D0
+08000846  6602      1201          bne.s     generateFood_9
+                    1202   ; bol = 1; //resets loop if collision detected
+08000848  7601      1203          moveq     #1,D3
+                    1204   generateFood_9:
+0800084A  5282      1205          addq.l    #1,D2
+0800084C  60D4      1206          bra       generateFood_6
+                    1207   generateFood_8:
+0800084E  4A83      1208          tst.l     D3
+08000850  6600 FF5A 1209          bne       generateFood_4
+                    1210   ; }
+                    1211   ; }
+                    1212   ; } while (bol);//while colliding with snake
+                    1213   ; drawFood();
+08000854  4EB9 0800 1214          jsr       _drawFood
+08000858  0642      
+0800085A  4CDF 040C 1215          movem.l   (A7)+,D2/D3/A2
+0800085E  4E75      1216          rts
+                    1217   ; }
+                    1218   ; int getKeypress()
+                    1219   ; {
+                    1220   _getKeypress:
+08000860  48E7 0030 1221          movem.l   A2/A3,-(A7)
+08000864  45F9 0800 1222          lea       _Snake.L,A2
+08000868  0D68      
+0800086A  47F9 0800 1223          lea       _waiting_for_direction_to_be_imp.L,A3
+0800086E  4D7E      
+                    1224   ; if (kbhit()) {
+08000870  4EB9 0800 1225          jsr       _kbhit
+08000874  00D6      
+08000876  4A80      1226          tst.l     D0
+08000878  6700 00E4 1227          beq       getKeypress_4
+                    1228   ; switch (_getch())
+0800087C  4EB9 0800 1229          jsr       __getch
+08000880  011C      
+08000882  0C80 0000 1230          cmp.l     #113,D0
+08000886  0071      
+08000888  6700 00CA 1231          beq       getKeypress_10
+0800088C  6E28      1232          bgt.s     getKeypress_12
+0800088E  0C80 0000 1233          cmp.l     #100,D0
+08000892  0064      
+08000894  6700 0096 1234          beq       getKeypress_8
+08000898  6E0E      1235          bgt.s     getKeypress_13
+0800089A  0C80 0000 1236          cmp.l     #97,D0
+0800089E  0061      
+080008A0  6700 006A 1237          beq       getKeypress_7
+080008A4  6000 00B8 1238          bra       getKeypress_3
+                    1239   getKeypress_13:
+080008A8  0C80 0000 1240          cmp.l     #112,D0
+080008AC  0070      
+080008AE  6700 009C 1241          beq       getKeypress_9
+080008B2  6000 00AA 1242          bra       getKeypress_3
+                    1243   getKeypress_12:
+080008B6  0C80 0000 1244          cmp.l     #119,D0
+080008BA  0077      
+080008BC  6710      1245          beq.s     getKeypress_5
+080008BE  6E00 009E 1246          bgt       getKeypress_3
+080008C2  0C80 0000 1247          cmp.l     #115,D0
+080008C6  0073      
+080008C8  6724      1248          beq.s     getKeypress_6
+080008CA  6000 0092 1249          bra       getKeypress_3
+                    1250   getKeypress_5:
+                    1251   ; {
+                    1252   ; case 'w':
+                    1253   ; if (!waiting_for_direction_to_be_implemented && (Snake.direction != south)){
+080008CE  4A93      1254          tst.l     (A3)
+080008D0  6618      1255          bne.s     getKeypress_14
+080008D2  302A 4004 1256          move.w    16388(A2),D0
+080008D6  48C0      1257          ext.l     D0
+080008D8  0C80 0000 1258          cmp.l     #1,D0
+080008DC  0001      
+080008DE  670A      1259          beq.s     getKeypress_14
+                    1260   ; Snake.direction = north;
+080008E0  426A 4004 1261          clr.w     16388(A2)
+                    1262   ; waiting_for_direction_to_be_implemented = 1;
+080008E4  26BC 0000 1263          move.l    #1,(A3)
+080008E8  0001      
+                    1264   getKeypress_14:
+                    1265   ; }
+                    1266   ; break;
+080008EA  6000 0072 1267          bra       getKeypress_4
+                    1268   getKeypress_6:
+                    1269   ; case 's':
+                    1270   ; if (!waiting_for_direction_to_be_implemented && (Snake.direction != north)){
+080008EE  4A93      1271          tst.l     (A3)
+080008F0  6616      1272          bne.s     getKeypress_16
+080008F2  302A 4004 1273          move.w    16388(A2),D0
+080008F6  48C0      1274          ext.l     D0
+080008F8  4A80      1275          tst.l     D0
+080008FA  670C      1276          beq.s     getKeypress_16
+                    1277   ; Snake.direction = south;
+080008FC  357C 0001 1278          move.w    #1,16388(A2)
+08000900  4004      
+                    1279   ; waiting_for_direction_to_be_implemented = 1;
+08000902  26BC 0000 1280          move.l    #1,(A3)
+08000906  0001      
+                    1281   getKeypress_16:
+                    1282   ; }
+                    1283   ; break;
+08000908  6000 0054 1284          bra       getKeypress_4
+                    1285   getKeypress_7:
+                    1286   ; case 'a':
+                    1287   ; if (!waiting_for_direction_to_be_implemented && (Snake.direction != east)){
+0800090C  4A93      1288          tst.l     (A3)
+0800090E  661A      1289          bne.s     getKeypress_18
+08000910  302A 4004 1290          move.w    16388(A2),D0
+08000914  48C0      1291          ext.l     D0
+08000916  0C80 0000 1292          cmp.l     #3,D0
+0800091A  0003      
+0800091C  670C      1293          beq.s     getKeypress_18
+                    1294   ; Snake.direction = west;
+0800091E  357C 0002 1295          move.w    #2,16388(A2)
+08000922  4004      
+                    1296   ; waiting_for_direction_to_be_implemented = 1;
+08000924  26BC 0000 1297          move.l    #1,(A3)
+08000928  0001      
+                    1298   getKeypress_18:
+                    1299   ; }
+                    1300   ; break;
+0800092A  6032      1301          bra.s     getKeypress_4
+                    1302   getKeypress_8:
+                    1303   ; case 'd':
+                    1304   ; if (!waiting_for_direction_to_be_implemented && (Snake.direction != west)){
+0800092C  4A93      1305          tst.l     (A3)
+0800092E  661A      1306          bne.s     getKeypress_20
+08000930  302A 4004 1307          move.w    16388(A2),D0
+08000934  48C0      1308          ext.l     D0
+08000936  0C80 0000 1309          cmp.l     #2,D0
+0800093A  0002      
+0800093C  670C      1310          beq.s     getKeypress_20
+                    1311   ; Snake.direction = east;
+0800093E  357C 0003 1312          move.w    #3,16388(A2)
+08000942  4004      
+                    1313   ; waiting_for_direction_to_be_implemented = 1;
+08000944  26BC 0000 1314          move.l    #1,(A3)
+08000948  0001      
+                    1315   getKeypress_20:
+                    1316   ; }
+                    1317   ; break;
+0800094A  6012      1318          bra.s     getKeypress_4
+                    1319   getKeypress_9:
+                    1320   ; case 'p':
+                    1321   ; _getch();
+0800094C  4EB9 0800 1322          jsr       __getch
+08000950  011C      
+                    1323   ; break;
+08000952  600A      1324          bra.s     getKeypress_4
+                    1325   getKeypress_10:
+                    1326   ; case 'q':
+                    1327   ; gameOver();
+08000954  4EB9 0800 1328          jsr       _gameOver
+08000958  0430      
+                    1329   ; return 0;
+0800095A  4280      1330          clr.l     D0
+0800095C  6002      1331          bra.s     getKeypress_22
+                    1332   getKeypress_3:
+                    1333   ; default:
+                    1334   ; //do nothing
+                    1335   ; break;
+                    1336   getKeypress_4:
+                    1337   ; }
+                    1338   ; }
+                    1339   ; return 1;
+0800095E  7001      1340          moveq     #1,D0
+                    1341   getKeypress_22:
+08000960  4CDF 0C00 1342          movem.l   (A7)+,A2/A3
+08000964  4E75      1343          rts
+                    1344   ; }
+                    1345   ; int detectCollision()//with self -> game over, food -> delete food add score (only head checks)
+                    1346   ; // returns 0 for no collision, 1 for game over
+                    1347   ; {
+                    1348   _detectCollision:
+08000966  48E7 3020 1349          movem.l   D2/D3/A2,-(A7)
+0800096A  45F9 0800 1350          lea       _Snake.L,A2
+0800096E  0D68      
+                    1351   ; int i;
+                    1352   ; int retval;
+                    1353   ; retval = 0;
+08000970  4283      1354          clr.l     D3
+                    1355   ; if (Snake.xy[0].x == Snake.food.x && Snake.xy[0].y == Snake.food.y) {
+08000972  2012      1356          move.l    (A2),D0
+08000974  B0AA 400E 1357          cmp.l     16398(A2),D0
+08000978  6600 006C 1358          bne       detectCollision_1
+0800097C  202A 0004 1359          move.l    4(A2),D0
+08000980  B0AA 4012 1360          cmp.l     16402(A2),D0
+08000984  6600 0060 1361          bne       detectCollision_1
+                    1362   ; //detect collision with food
+                    1363   ; Snake.length++;
+08000988  200A      1364          move.l    A2,D0
+0800098A  0680 0000 1365          add.l     #16384,D0
+0800098E  4000      
+08000990  2040      1366          move.l    D0,A0
+08000992  5290      1367          addq.l    #1,(A0)
+                    1368   ; Snake.xy[Snake.length-1].x = Snake.xy[Snake.length-2].x;
+08000994  202A 4000 1369          move.l    16384(A2),D0
+08000998  5580      1370          subq.l    #2,D0
+0800099A  E788      1371          lsl.l     #3,D0
+0800099C  222A 4000 1372          move.l    16384(A2),D1
+080009A0  5381      1373          subq.l    #1,D1
+080009A2  E789      1374          lsl.l     #3,D1
+080009A4  25B2 0800 1375          move.l    0(A2,D0.L),0(A2,D1.L)
+080009A8  1800      
+                    1376   ; Snake.xy[Snake.length-1].y = Snake.xy[Snake.length-2].y;
+080009AA  202A 4000 1377          move.l    16384(A2),D0
+080009AE  5580      1378          subq.l    #2,D0
+080009B0  E788      1379          lsl.l     #3,D0
+080009B2  41F2 0800 1380          lea       0(A2,D0.L),A0
+080009B6  202A 4000 1381          move.l    16384(A2),D0
+080009BA  5380      1382          subq.l    #1,D0
+080009BC  E788      1383          lsl.l     #3,D0
+080009BE  43F2 0800 1384          lea       0(A2,D0.L),A1
+080009C2  2368 0004 1385          move.l    4(A0),4(A1)
+080009C6  0004      
+                    1386   ; Snake.speed = Snake.speed + Snake.speed_increase;
+080009C8  202A 4006 1387          move.l    16390(A2),D0
+080009CC  D0AA 400A 1388          add.l     16394(A2),D0
+080009D0  2540 4006 1389          move.l    D0,16390(A2)
+                    1390   ; generateFood();
+080009D4  4EB9 0800 1391          jsr       _generateFood
+080009D8  077C      
+                    1392   ; score++;
+080009DA  52B9 0800 1393          addq.l    #1,_score.L
+080009DE  0D5C      
+                    1394   ; updateScore();
+080009E0  4EB9 0800 1395          jsr       _updateScore
+080009E4  050C      
+                    1396   detectCollision_1:
+                    1397   ; }
+                    1398   ; for(i = 2; i < Snake.length; i++)
+080009E6  7402      1399          moveq     #2,D2
+                    1400   detectCollision_3:
+080009E8  B4AA 4000 1401          cmp.l     16384(A2),D2
+080009EC  6C2A      1402          bge.s     detectCollision_5
+                    1403   ; {
+                    1404   ; //detects collision of the head
+                    1405   ; if (Snake.xy[i].x == Snake.xy[0].x && Snake.xy[i].y == Snake.xy[0].y) {
+080009EE  2002      1406          move.l    D2,D0
+080009F0  E788      1407          lsl.l     #3,D0
+080009F2  2232 0800 1408          move.l    0(A2,D0.L),D1
+080009F6  B292      1409          cmp.l     (A2),D1
+080009F8  661A      1410          bne.s     detectCollision_6
+080009FA  2002      1411          move.l    D2,D0
+080009FC  E788      1412          lsl.l     #3,D0
+080009FE  41F2 0800 1413          lea       0(A2,D0.L),A0
+08000A02  2028 0004 1414          move.l    4(A0),D0
+08000A06  B0AA 0004 1415          cmp.l     4(A2),D0
+08000A0A  6608      1416          bne.s     detectCollision_6
+                    1417   ; gameOver();
+08000A0C  4EB9 0800 1418          jsr       _gameOver
+08000A10  0430      
+                    1419   ; retval = 1;
+08000A12  7601      1420          moveq     #1,D3
+                    1421   detectCollision_6:
+08000A14  5282      1422          addq.l    #1,D2
+08000A16  60D0      1423          bra       detectCollision_3
+                    1424   detectCollision_5:
+                    1425   ; }
+                    1426   ; }
+                    1427   ; if (Snake.xy[0].x == 1 || Snake.xy[0].x == (screensize.x-1) || Snake.xy[0].y == 1 || Snake.xy[0].y == (screensize.y-2)) {
+08000A18  2012      1428          move.l    (A2),D0
+08000A1A  0C80 0000 1429          cmp.l     #1,D0
+08000A1E  0001      
+08000A20  6726      1430          beq.s     detectCollision_10
+08000A22  2039 0800 1431          move.l    _screensize.L,D0
+08000A26  0D44      
+08000A28  5380      1432          subq.l    #1,D0
+08000A2A  B092      1433          cmp.l     (A2),D0
+08000A2C  671A      1434          beq.s     detectCollision_10
+08000A2E  202A 0004 1435          move.l    4(A2),D0
+08000A32  0C80 0000 1436          cmp.l     #1,D0
+08000A36  0001      
+08000A38  670E      1437          beq.s     detectCollision_10
+08000A3A  2039 0800 1438          move.l    _screensize+4.L,D0
+08000A3E  0D48      
+08000A40  5580      1439          subq.l    #2,D0
+08000A42  B0AA 0004 1440          cmp.l     4(A2),D0
+08000A46  6608      1441          bne.s     detectCollision_8
+                    1442   detectCollision_10:
+                    1443   ; //collision with wall
+                    1444   ; gameOver();
+08000A48  4EB9 0800 1445          jsr       _gameOver
+08000A4C  0430      
+                    1446   ; retval = 1;
+08000A4E  7601      1447          moveq     #1,D3
+                    1448   detectCollision_8:
+                    1449   ; }
+                    1450   ; return retval;
+08000A50  2003      1451          move.l    D3,D0
+08000A52  4CDF 040C 1452          movem.l   (A7)+,D2/D3/A2
+08000A56  4E75      1453          rts
+                    1454   ; }
+                    1455   ; void mainloop()
+                    1456   ; {
+                    1457   _mainloop:
+08000A58  4E56 FFFC 1458          link      A6,#-4
+08000A5C  2F02      1459          move.l    D2,-(A7)
+                    1460   ; int current_time;
+                    1461   ; int got_game_over;
+                    1462   ; while(1){
+                    1463   mainloop_1:
+                    1464   ; if (!getKeypress()) {
+08000A5E  4EB9 0800 1465          jsr       _getKeypress
+08000A62  0860      
+08000A64  4A80      1466          tst.l     D0
+08000A66  6604      1467          bne.s     mainloop_4
+                    1468   ; return;
+08000A68  6000 0048 1469          bra       mainloop_3
+                    1470   mainloop_4:
+                    1471   ; }
+                    1472   ; current_time = clock();
+08000A6C  4EB9 0800 1473          jsr       _clock
+08000A70  027A      
+08000A72  2400      1474          move.l    D0,D2
+                    1475   ; //printf("\r\nCurrent time: %d",current_time);
+                    1476   ; if (current_time >= ((MILLISECONDS_PER_SEC/Snake.speed) + timer)) {
+08000A74  4878 03E8 1477          pea       1000
+08000A78  2F39 0800 1478          move.l    _Snake+16390.L,-(A7)
+08000A7C  4D6E      
+08000A7E  4EB9 0800 1479          jsr       LDIV
+08000A82  0BC6      
+08000A84  2017      1480          move.l    (A7),D0
+08000A86  504F      1481          addq.w    #8,A7
+08000A88  D0B9 0800 1482          add.l     _timer.L,D0
+08000A8C  0D60      
+08000A8E  B480      1483          cmp.l     D0,D2
+08000A90  6D1E      1484          blt.s     mainloop_7
+                    1485   ; moveSnake(); //draws new snake position
+08000A92  4EB9 0800 1486          jsr       _moveSnake
+08000A96  065E      
+                    1487   ; got_game_over = detectCollision();
+08000A98  4EB9 0800 1488          jsr       _detectCollision
+08000A9C  0966      
+08000A9E  2D40 FFFC 1489          move.l    D0,-4(A6)
+                    1490   ; if (got_game_over) {
+08000AA2  4AAE FFFC 1491          tst.l     -4(A6)
+08000AA6  6702      1492          beq.s     mainloop_9
+                    1493   ; break;
+08000AA8  6008      1494          bra.s     mainloop_3
+                    1495   mainloop_9:
+                    1496   ; }
+                    1497   ; timer = current_time;
+08000AAA  23C2 0800 1498          move.l    D2,_timer.L
+08000AAE  0D60      
+                    1499   mainloop_7:
+08000AB0  60AC      1500          bra       mainloop_1
+                    1501   mainloop_3:
+08000AB2  241F      1502          move.l    (A7)+,D2
+08000AB4  4E5E      1503          unlk      A6
+08000AB6  4E75      1504          rts
+                    1505   ; }
+                    1506   ; }
+                    1507   ; }
+                    1508   ; void snake_main()
+                    1509   ; {   
+                    1510   _snake_main:
+08000AB8  2F0A      1511          move.l    A2,-(A7)
+08000ABA  45F9 0800 1512          lea       _Snake.L,A2
+08000ABE  0D68      
+                    1513   ; clock_counter = 0;
+08000AC0  42B9 0800 1514          clr.l     _clock_counter.L
+08000AC4  0D64      
+                    1515   ; score = 0;
+08000AC6  42B9 0800 1516          clr.l     _score.L
+08000ACA  0D5C      
+                    1517   ; waiting_for_direction_to_be_implemented = 0;
+08000ACC  42B9 0800 1518          clr.l     _waiting_for_direction_to_be_imp.L
+08000AD0  4D7E      
+                    1519   ; Snake.xy[0].x = 4;
+08000AD2  24BC 0000 1520          move.l    #4,(A2)
+08000AD6  0004      
+                    1521   ; Snake.xy[0].y = 3;
+08000AD8  257C 0000 1522          move.l    #3,4(A2)
+08000ADC  0003 0004 
+                    1523   ; Snake.xy[1].x = 3;
+08000AE0  257C 0000 1524          move.l    #3,8(A2)
+08000AE4  0003 0008 
+                    1525   ; Snake.xy[1].y = 3;
+08000AE8  257C 0000 1526          move.l    #3,12(A2)
+08000AEC  0003 000C 
+                    1527   ; Snake.xy[2].x = 2;
+08000AF0  257C 0000 1528          move.l    #2,16(A2)
+08000AF4  0002 0010 
+                    1529   ; Snake.xy[2].y = 3;
+08000AF8  257C 0000 1530          move.l    #3,20(A2)
+08000AFC  0003 0014 
+                    1531   ; Snake.length = INITIAL_SNAKE_LENGTH;
+08000B00  257C 0000 1532          move.l    #3,16384(A2)
+08000B04  0003 4000 
+                    1533   ; Snake.direction = east;
+08000B08  357C 0003 1534          move.w    #3,16388(A2)
+08000B0C  4004      
+                    1535   ; initSnake();
+08000B0E  4EB9 0800 1536          jsr       _initSnake
+08000B12  05EE      
+                    1537   ; cls();
+08000B14  4EB9 0800 1538          jsr       _cls
+08000B18  01F0      
+                    1539   ; drawRect(1,1,screensize.x-1,screensize.y-2, BORDER);
+08000B1A  4878 0023 1540          pea       35
+08000B1E  2239 0800 1541          move.l    _screensize+4.L,D1
+08000B22  0D48      
+08000B24  5581      1542          subq.l    #2,D1
+08000B26  2F01      1543          move.l    D1,-(A7)
+08000B28  2239 0800 1544          move.l    _screensize.L,D1
+08000B2C  0D44      
+08000B2E  5381      1545          subq.l    #1,D1
+08000B30  2F01      1546          move.l    D1,-(A7)
+08000B32  4878 0001 1547          pea       1
+08000B36  4878 0001 1548          pea       1
+08000B3A  4EB9 0800 1549          jsr       _drawRect
+08000B3E  0552      
+08000B40  DEFC 0014 1550          add.w     #20,A7
+                    1551   ; drawSnake();
+08000B44  4EB9 0800 1552          jsr       _drawSnake
+08000B48  0604      
+                    1553   ; generateFood();
+08000B4A  4EB9 0800 1554          jsr       _generateFood
+08000B4E  077C      
+                    1555   ; drawFood();
+08000B50  4EB9 0800 1556          jsr       _drawFood
+08000B54  0642      
+                    1557   ; timer = clock();
+08000B56  4EB9 0800 1558          jsr       _clock
+08000B5A  027A      
+08000B5C  23C0 0800 1559          move.l    D0,_timer.L
+08000B60  0D60      
+                    1560   ; updateScore();
+08000B62  4EB9 0800 1561          jsr       _updateScore
+08000B66  050C      
+                    1562   ; mainloop();
+08000B68  4EB9 0800 1563          jsr       _mainloop
+08000B6C  0A58      
+08000B6E  245F      1564          move.l    (A7)+,A2
+08000B70  4E75      1565          rts
+                    1566   ; }
+                    1567   ; void main ()
+                    1568   ; {   
+                    1569   _main:
+                    1570   ; InstallExceptionHandler(clock, 30);
+08000B72  4878 001E 1571          pea       30
+08000B76  4879 0800 1572          pea       _clock.L
+08000B7A  027A      
+08000B7C  4EB9 0800 1573          jsr       _InstallExceptionHandler
+08000B80  003E      
+08000B82  504F      1574          addq.w    #8,A7
+                    1575   ; Timer2Data = 0x03;
+08000B84  13FC 0003 1576          move.b    #3,4194356
+08000B88  0040 0034 
+                    1577   ; Timer2Control = 3;
+08000B8C  13FC 0003 1578          move.b    #3,4194358
+08000B90  0040 0036 
+                    1579   ; Init_LCD();             // initialise the LCD display to use a parallel data interface and 2 lines of display
+08000B94  4EB9 0800 1580          jsr       _Init_LCD
+08000B98  00A6      
+                    1581   ; Init_RS232() ;          // initialise the RS232 port for use with hyper terminal
+08000B9A  4EB9 0800 1582          jsr       _Init_RS232
+08000B9E  00C4      
+                    1583   ; set_vga_control_reg(0x82);
+08000BA0  4878 0082 1584          pea       130
+08000BA4  4EB9 0800 1585          jsr       _set_vga_control_reg
+08000BA8  0256      
+08000BAA  584F      1586          addq.w    #4,A7
+                    1587   ; snake_main();
+08000BAC  4EB9 0800 1588          jsr       _snake_main
+08000BB0  0AB8      
+08000BB2  4E75      1589          rts
+                    1590   ; }
+                    1591   ULDIV:
+08000BB4  4E56 0000 1592          link    A6,#0
+08000BB8  48E7 C000 1593          movem.l D0/D1,-(A7)
+08000BBC  222E 0008 1594          move.l  8(A6),D1
+08000BC0  202E 000C 1595          move.l  12(A6),D0
+08000BC4  6036      1596          bra.s   ldiv_3
+                    1597   LDIV:
+08000BC6  4E56 0000 1598          link    A6,#0
+08000BCA  48E7 C000 1599          movem.l D0/D1,-(A7)
+08000BCE  222E 0008 1600          move.l  8(A6),D1
+08000BD2  202E 000C 1601          move.l  12(A6),D0
+08000BD6  4A80      1602          tst.l   D0
+08000BD8  6A0E      1603          bpl.s   ldiv_1
+08000BDA  4480      1604          neg.l   D0
+08000BDC  4A81      1605          tst.l   D1
+08000BDE  6A14      1606          bpl.s   ldiv_2
+08000BE0  4481      1607          neg.l   D1
+08000BE2  612A      1608          bsr.s   dodiv
+08000BE4  4481      1609          neg.l   D1
+08000BE6  6016      1610          bra.s   ldiv_4
+                    1611   ldiv_1:
+08000BE8  4A81      1612          tst.l   D1
+08000BEA  6A10      1613          bpl.s   ldiv_3
+08000BEC  4481      1614          neg.l   D1
+08000BEE  611E      1615          bsr.s   dodiv
+08000BF0  4480      1616          neg.l   D0
+08000BF2  600A      1617          bra.s   ldiv_4
+                    1618   ldiv_2:
+08000BF4  6118      1619          bsr.s   dodiv
+08000BF6  4480      1620          neg.l   D0
+08000BF8  4481      1621          neg.l   D1
+08000BFA  6002      1622          bra.s   ldiv_4
+                    1623   ldiv_3:
+08000BFC  6110      1624          bsr.s   dodiv
+                    1625   ldiv_4:
+08000BFE  2D40 0008 1626          move.l  D0,8(A6)
+08000C02  2D41 000C 1627          move.l  D1,12(A6)
+08000C06  4CDF 0003 1628          movem.l (A7)+,D0/D1
+08000C0A  4E5E      1629          unlk    A6
+08000C0C  4E75      1630          rts
+                    1631   dodiv:
+08000C0E  0C81 0000 1632          cmpi.l  #$FFFF,D1
+08000C12  FFFF      
+08000C14  6236      1633          bhi.s   dodiv_2
+08000C16  0C80 0000 1634          cmpi.l  #$FFFF,D0
+08000C1A  FFFF      
+08000C1C  6210      1635          bhi.s   dodiv_1
+08000C1E  80C1      1636          divu    D1,D0
+08000C20  2200      1637          move.l  D0,D1
+08000C22  4241      1638          clr.w   D1
+08000C24  4841      1639          swap    D1
+08000C26  0280 0000 1640          andi.l  #$FFFF,D0
+08000C2A  FFFF      
+08000C2C  4E75      1641          rts
+                    1642   dodiv_1:
+08000C2E  48A7 A000 1643          movem.w D0/D2,-(A7)
+08000C32  4240      1644          clr.w   D0
+08000C34  4840      1645          swap    D0
+08000C36  80C1      1646          divu    D1,D0
+08000C38  3400      1647          move.w  D0,D2
+08000C3A  301F      1648          move.w  (A7)+,D0
+08000C3C  80C1      1649          divu    D1,D0
+08000C3E  4840      1650          swap    D0
+08000C40  4281      1651          clr.l   D1
+08000C42  3200      1652          move.w  D0,D1
+08000C44  3002      1653          move.w  D2,D0
+08000C46  4840      1654          swap    D0
+08000C48  341F      1655          move.w  (A7)+,D2
+08000C4A  4E75      1656          rts
+                    1657   dodiv_2:
+08000C4C  48E7 3800 1658          movem.l D2/D3/D4,-(A7)
+08000C50  2401      1659          move.l  D1,D2
+08000C52  4242      1660          clr.w   D2
+08000C54  4842      1661          swap    D2
+08000C56  5282      1662          addq.l  #1,D2
+08000C58  2600      1663          move.l  D0,D3
+08000C5A  2801      1664          move.l  D1,D4
+08000C5C  2202      1665          move.l  D2,D1
+08000C5E  61CE      1666          bsr.s   dodiv_1
+08000C60  2204      1667          move.l  D4,D1
+08000C62  82C2      1668          divu    D2,D1
+08000C64  80C1      1669          divu    D1,D0
+08000C66  0280 0000 1670          andi.l  #$FFFF,D0
+08000C6A  FFFF      
+                    1671   dodiv_3:
+08000C6C  2204      1672          move.l  D4,D1
+08000C6E  2404      1673          move.l  D4,D2
+08000C70  4842      1674          swap    D2
+08000C72  C2C0      1675          mulu    D0,D1
+08000C74  C4C0      1676          mulu    D0,D2
+08000C76  4842      1677          swap    D2
+08000C78  D282      1678          add.l   D2,D1
+08000C7A  9283      1679          sub.l   D3,D1
+08000C7C  620A      1680          bhi.s   dodiv_4
+08000C7E  4481      1681          neg.l   D1
+08000C80  B881      1682          cmp.l   D1,D4
+08000C82  6208      1683          bhi.s   dodiv_5
+08000C84  5280      1684          addq.l  #1,D0
+08000C86  60E4      1685          bra.s   dodiv_3
+                    1686   dodiv_4:
+08000C88  5380      1687          subq.l  #1,D0
+08000C8A  60E0      1688          bra.s   dodiv_3
+                    1689   dodiv_5:
+08000C8C  4CDF 001C 1690          movem.l (A7)+,D2/D3/D4
+08000C90  4E75      1691          rts
+                    1692   ULMUL:
+08000C92  4E56 0000 1693          link    A6,#0
+08000C96  48E7 C000 1694          movem.l D0/D1,-(A7)
+08000C9A  222E 0008 1695          move.l  8(A6),D1
+08000C9E  202E 000C 1696          move.l  12(A6),D0
+08000CA2  602C      1697          bra.s   lmul_3
+                    1698   LMUL:
+08000CA4  4E56 0000 1699          link    A6,#0
+08000CA8  48E7 C000 1700          movem.l D0/D1,-(A7)
+08000CAC  222E 0008 1701          move.l  8(A6),D1
+08000CB0  202E 000C 1702          move.l  12(A6),D0
+08000CB4  4A80      1703          tst.l   D0
+08000CB6  6A0A      1704          bpl.s   lmul_1
+08000CB8  4480      1705          neg.l   D0
+08000CBA  4A81      1706          tst.l   D1
+08000CBC  6A0A      1707          bpl.s   lmul_2
+08000CBE  4481      1708          neg.l   D1
+08000CC0  600E      1709          bra.s   lmul_3
+                    1710   lmul_1:
+08000CC2  4A81      1711          tst.l   D1
+08000CC4  6A0A      1712          bpl.s   lmul_3
+08000CC6  4481      1713          neg.l   D1
+                    1714   lmul_2:
+08000CC8  6114      1715          bsr.s   domul
+08000CCA  4481      1716          neg.l   D1
+08000CCC  4080      1717          negx.l  D0
+08000CCE  6002      1718          bra.s   lmul_4
+                    1719   lmul_3:
+08000CD0  610C      1720          bsr.s   domul
+                    1721   lmul_4:
+08000CD2  2D41 0008 1722          move.l  D1,8(A6)
+08000CD6  4CDF 0003 1723          movem.l (A7)+,D0/D1
+08000CDA  4E5E      1724          unlk    A6
+08000CDC  4E75      1725          rts
+                    1726   domul:
+08000CDE  0C81 0000 1727          cmpi.l  #$FFFF,D1
+08000CE2  FFFF      
+08000CE4  620C      1728          bhi.s   domul_1
+08000CE6  0C80 0000 1729          cmpi.l  #$FFFF,D0
+08000CEA  FFFF      
+08000CEC  620E      1730          bhi.s   domul_2
+08000CEE  C2C0      1731          mulu    D0,D1
+08000CF0  4E75      1732          rts
+                    1733   domul_1:
+08000CF2  0C80 0000 1734          cmpi.l  #$FFFF,D0
+08000CF6  FFFF      
+08000CF8  6218      1735          bhi.s   domul_4
+08000CFA  6002      1736          bra.s   domul_3
+                    1737   domul_2
+08000CFC  C141      1738          exg     D0,D1
+                    1739   domul_3:
+08000CFE  2F02      1740          move.l  D2,-(A7)
+08000D00  2401      1741          move.l  D1,D2
+08000D02  4842      1742          swap    D2
+08000D04  C2C0      1743          mulu    D0,D1
+08000D06  C4C0      1744          mulu    D0,D2
+08000D08  4842      1745          swap    D2
+08000D0A  4242      1746          clr.w   D2
+08000D0C  D282      1747          add.l   D2,D1
+08000D0E  241F      1748          move.l  (A7)+,D2
+08000D10  4E75      1749          rts
+                    1750   domul_4:
+08000D12  48E7 3000 1751          movem.l D2/D3,-(A7)
+08000D16  2401      1752          move.l  D1,D2
+08000D18  2601      1753          move.l  D1,D3
+08000D1A  C2C0      1754          mulu    D0,D1
+08000D1C  4842      1755          swap    D2
+08000D1E  C4C0      1756          mulu    D0,D2
+08000D20  4840      1757          swap    D0
+08000D22  C6C0      1758          mulu    D0,D3
+08000D24  D483      1759          add.l   D3,D2
+08000D26  4842      1760          swap    D2
+08000D28  4242      1761          clr.w   D2
+08000D2A  D282      1762          add.l   D2,D1
+08000D2C  4CDF 000C 1763          movem.l (A7)+,D2/D3
+08000D30  4E75      1764          rts
+                    1765          section   const
+08000D32            1766                   align
+                    1767   
+                    1768   
+                    1769   @snake_1:
+08000D32  616D 6520 1770          dc.b      97,109,101,32,79,118,101,114,33,0
+08000D36  4F76 6572 
+08000D3A  2100      
+                    1771   @snake_2:
+08000D3C  5363 6F72 1772          dc.b      83,99,111,114,101,58,32,0
+08000D40  653A 2000 
+                    1773   _screensize:
+08000D44  0000 0050 1774          dc.l      80,40
+08000D48  0000 0028 
+                    1775          section   data
+08000D4C            1776                   align
+                    1777   
+                    1778   *********************************************************************************************************************************************************
+                    1779   * Section for Initialised Data (in theory should be copied to Ram at startup) but is part of program code as we copy whole program to ram at startup
+                    1780   ********************************************************************************************************************************************************
+                    1781   
+          0800 0D4C 1782   DataStart       equ       *
+08000D4C            1783   __ungetbuf:     ds.l      1                    ungetbuffer for stdio functions
+08000D50            1784   __allocp:       ds.l      1                    start of free memory block list
+08000D54            1785   __heap:         ds.l      1                    begin of free memory
+                    1786   
+                    1787   
+                    1788   generateFood_firsttime:
+08000D58  0000 0001 1789          dc.l      1
+                    1790          section   bss
+08000D5C            1791                   align
+                    1792   
+          0800 0D5C 1793   DataEnd         equ       *                    this label will equate to the address of the last byte of global variable in it
+          0000 0010 1794   DataLength      equ       DataEnd-DataStart    length of data needed to copy to Ram on bootup
+                    1795   
+                    1796   *********************************************************************************************************
+                    1797   * Section for uninitialised Data which is set to zero, i.e. we should set this space to zero at starup
+                    1798   *********************************************************************************************************
+          0800 0D5C 1799   BssStart       equ       *
+                    1800   
+                    1801   _score:
+08000D5C            1802          ds.b      4
+                    1803   _timer:
+08000D60            1804          ds.b      4
+                    1805   _clock_counter:
+08000D64            1806          ds.b      4
+                    1807   _Snake:
+08000D68            1808          ds.b      16406
+                    1809   _waiting_for_direction_to_be_imp:
+08004D7E            1810          ds.b      4
+                    1811          section   heap
+08004D82            1812                  align
+                    1813   
+          0800 4D82 1814   BssEnd         equ       *
+          0000 4026 1815   BssLength      equ       BssEnd-BssStart       length of zeroed data needed to copy to Ram on bootup
+                    1816   
+                    1817   *********************************************************************************************************
+                    1818   * Section for Heap
+                    1819   *********************************************************************************************************
+                    1820   
+          0800 4D82 1821   heap           equ       *
+08004D82            1822                  align
+          0800 0000
+
+Assembly errors: 0

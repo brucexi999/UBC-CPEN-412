@@ -1,0 +1,30 @@
+module vga_decoder (
+    input [3:0] addr,
+    input AS_L,
+    input vga_select_H,
+    output x_en,
+    output y_en,
+    output ctl_en,
+    output text_en
+);
+
+always_comb begin
+    x_en = 0;
+    y_en = 0;
+    ctl_en = 0;
+    text_en = 0;
+
+    if (addr == 4'b0000 && AS_L == 0 && vga_select_H == 1) begin
+        text_en = 1;
+    end
+    else if (addr == 4'b0010 && AS_L == 0 && vga_select_H == 1) begin
+        x_en = 1;
+    end
+    else if (addr == 4'b0100 && AS_L == 0 && vga_select_H == 1) begin
+        y_en = 1;
+    end
+    else if (addr == 4'b0110 && AS_L == 0 && vga_select_H == 1) begin
+        ctl_en = 1;
+    end
+end
+endmodule
