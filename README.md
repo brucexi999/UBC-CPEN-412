@@ -1,4 +1,6 @@
 # UBC-CPEN-412
+**Demo videos: https://www.youtube.com/playlist?list=PLEl9-2s0-Kipo0fBaahaw3qkfHiuV_OUa**
+
 Completed an embedded system course focused on hardware and software design using a Motorola 68K soft processor implemented on FPGA. Designed a 4-way set-associative cache controller, DRAM controller, address decoder, and on-chip memories (RAM and ROM) using Verilog and Quartus IP catalog. Developed C programs for memory testing, interfacing with SPI, IIC, and CAN controllers, utilizing hardware timer interrupts, and part of a VGA-displayed snake game.
 
 [Embedded Systems Design]
